@@ -38,11 +38,11 @@ cp .env.example .env
 docker-compose up -d
 
 # Start the backend
-cd Sona.Api
+cd backend/Sona.Api
 dotnet run
 
 # Start the frontend
-cd sona-web
+cd web-app
 npm install
 npm run dev
 ```

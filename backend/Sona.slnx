@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="Sona.Api/Sona.Api.csproj" />
+  <Project Path="Sona.Application/Sona.Application.csproj" />
+  <Project Path="Sona.Domain/Sona.Domain.csproj" />
+  <Project Path="Sona.Infrastructure/Sona.Infrastructure.csproj" />
+</Solution>

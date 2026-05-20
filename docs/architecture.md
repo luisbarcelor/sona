@@ -8,7 +8,7 @@
 
 ```
 ┌─────────────────┐         ┌─────────────────┐
-│   sona-web      │  HTTP   │   Sona.Api      │
+│   web-app       │  HTTP   │   Sona.Api      │
 │   React + Vite  │ ──────► │   ASP.NET Core  │
 │   :5173         │         │   :5000         │
 └─────────────────┘         └────────┬────────┘
@@ -36,8 +36,8 @@ Spotify Web API, audio analysis providers, PostgreSQL, and token storage.
 ### Folder structure
 
 ```
-Sona/
-├── Sona.sln
+backend/
+├── Sona.slnx
 ├── Sona.Api/
 │   ├── Controllers/
 │   │   ├── AuthController.cs
@@ -138,7 +138,7 @@ Each use case depends on abstractions such as `IPlaylistGateway`, `IAudioAnalysi
 ### Folder structure
 
 ```
-sona-web/
+web-app/
 ├── src/
 │   ├── api/
 │   │   ├── auth.ts

@@ -61,7 +61,7 @@ Returns all playlists for the authenticated user.
 ---
 
 ### `GET /playlists/{id}`
-Returns a playlist with all its tracks and their audio features.
+Returns a playlist with all its tracks and any available audio analysis.
 
 **Params:**
 | Param | Type | Description |
@@ -79,24 +79,28 @@ Returns a playlist with all its tracks and their audio features.
       "name": "Track name",
       "artist": "Artist",
       "albumImageUrl": "https://...",
-      "previewUrl": "https://...",
+      "spotifyUri": "spotify:track:4uLU6hMCjMI...",
+      "previewUrl": null,
       "audioFeatures": {
         "bpm": 128.0,
         "key": 5,
         "mode": 1,
         "energy": 0.85,
         "valence": 0.62,
-        "danceability": 0.78
+        "danceability": 0.78,
+        "source": "spotify"
       }
     }
   ]
 }
 ```
 
+`audioFeatures` is nullable when no configured analysis provider can supply data for the track.
+
 ---
 
 ### `PUT /playlists/{id}/reorder`
-Saves the new track order to Spotify.
+Saves the new track order to Spotify after validating the requested order against the playlist contents.
 
 **Params:**
 | Param | Type | Description |
@@ -114,7 +118,12 @@ Saves the new track order to Spotify.
 }
 ```
 
-**Response:** `200 OK`
+**Response:**
+```json
+{
+  "snapshotId": "MTAsZjY..."
+}
+```
 
 ---
 
@@ -122,7 +131,8 @@ Saves the new track order to Spotify.
 
 - All endpoints except `/auth/login` and `/auth/callback` require an active session.
 - Spotify tokens are managed internally — the frontend never sees them directly.
-- The `previewUrl` field can be `null` if Spotify has no preview available for that track.
+- `previewUrl` and `audioFeatures` can be `null`.
+- Reorder requests must contain each editable track exactly once.
 
 ---
 

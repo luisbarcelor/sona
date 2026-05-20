@@ -7,17 +7,26 @@
 ## Overview
 
 ```
-┌─────────────────┐         ┌─────────────────┐         ┌─────────────────┐
-│   sona-web      │  HTTP   │   Sona.Api      │  HTTP   │  Spotify API    │
-│   React + Vite  │ ──────► │   .NET 8        │ ──────► │                 │
-│   :5173         │         │   :5000         │         │                 │
-└─────────────────┘         └────────┬────────┘         └─────────────────┘
+┌─────────────────┐         ┌─────────────────┐
+│   sona-web      │  HTTP   │   Sona.Api      │
+│   React + Vite  │ ──────► │   ASP.NET Core  │
+│   :5173         │         │   :5000         │
+└─────────────────┘         └────────┬────────┘
                                      │
+                                     ▼
+                         ┌───────────────────────┐
+                         │  Sona.Application     │
+                         │  use cases + ports    │
+                         └───────────┬───────────┘
                                      │
-                            ┌────────▼────────┐
-                            │   PostgreSQL     │
-                            │   :5432          │
-                            └─────────────────┘
+                                     ▼
+                         ┌───────────────────────┐
+                         │     Sona.Domain       │
+                         │ entities + rules      │
+                         └───────────────────────┘
+
+External adapters live in Sona.Infrastructure:
+Spotify Web API, audio analysis providers, PostgreSQL, and token storage.
 ```
 
 ---
@@ -36,19 +45,41 @@ Sona/
 │   ├── Middleware/
 │   ├── Program.cs
 │   └── appsettings.json
-├── Sona.Application/
-│   ├── Interfaces/
-│   │   ├── ISpotifyService.cs
-│   │   └── IPlaylistRepository.cs
+├── Sona.Domain/
+│   ├── Entities/
+│   │   ├── Playlist.cs
+│   │   ├── PlaylistTrack.cs
+│   │   └── UserSession.cs
+│   ├── ValueObjects/
+│   │   ├── AudioFeatures.cs
+│   │   ├── SpotifyId.cs
+│   │   └── TrackPosition.cs
 │   ├── Services/
-│   │   └── PlaylistService.cs
+│   │   └── PlaylistOrderingService.cs
+│   └── Exceptions/
+├── Sona.Application/
+│   ├── Abstractions/
+│   │   ├── IAudioAnalysisProvider.cs
+│   │   ├── IPlaylistGateway.cs
+│   │   ├── ISessionRepository.cs
+│   │   └── IUnitOfWork.cs
+│   ├── Playlists/
+│   │   ├── GetPlaylists/
+│   │   ├── GetPlaylistDetails/
+│   │   └── ReorderPlaylist/
+│   ├── Auth/
+│   │   ├── StartLogin/
+│   │   ├── CompleteLogin/
+│   │   └── Logout/
 │   └── DTOs/
 │       ├── PlaylistDto.cs
 │       ├── TrackDto.cs
 │       └── AudioFeaturesDto.cs
 └── Sona.Infrastructure/
+    ├── AudioAnalysis/
     ├── Spotify/
-    │   └── SpotifyClient.cs
+    │   ├── SpotifyAuthClient.cs
+    │   └── SpotifyPlaylistGateway.cs
     ├── Persistence/
     │   ├── SonaDbContext.cs
     │   └── Repositories/
@@ -59,9 +90,10 @@ Sona/
 
 | Layer | Responsibility |
 |---|---|
-| `Sona.Api` | Controllers, endpoints, middleware, HTTP configuration |
-| `Sona.Application` | Business logic, interfaces, DTOs |
-| `Sona.Infrastructure` | Spotify HTTP client, EF Core, repositories |
+| `Sona.Domain` | Core entities, value objects, invariants, ordering rules |
+| `Sona.Application` | Use cases, ports, DTOs, transaction boundaries |
+| `Sona.Infrastructure` | Spotify clients, audio analysis providers, EF Core, repositories |
+| `Sona.Api` | Controllers, session middleware, HTTP configuration, dependency wiring |
 
 ### Project references
 
@@ -69,9 +101,35 @@ Sona/
 Sona.Api → Sona.Application
 Sona.Api → Sona.Infrastructure
 Sona.Infrastructure → Sona.Application
+Sona.Infrastructure → Sona.Domain
+Sona.Application → Sona.Domain
 ```
 
-`Sona.Application` has no external dependencies — only interfaces that the other layers implement.
+`Sona.Domain` has no dependencies on other projects or external packages. `Sona.Application` depends only on the domain and defines interfaces for infrastructure concerns. `Sona.Infrastructure` implements those interfaces.
+
+### Domain rules
+
+The domain layer owns behavior that should stay valid regardless of the UI or external APIs:
+
+- Track order must contain the same tracks as the source playlist when saving a reorder.
+- Locked tracks keep their fixed positions during auto-sort.
+- Compatibility scoring handles missing audio analysis explicitly.
+- Spotify IDs are treated as value objects instead of raw strings inside the domain.
+
+### Application use cases
+
+Application handlers orchestrate work without embedding infrastructure details:
+
+```
+StartSpotifyLogin
+CompleteSpotifyLogin
+GetCurrentUserPlaylists
+GetPlaylistForEditing
+PreviewPlaylistReorder
+SavePlaylistReorder
+```
+
+Each use case depends on abstractions such as `IPlaylistGateway`, `IAudioAnalysisProvider`, and `ISessionRepository`.
 
 ---
 
@@ -106,11 +164,11 @@ sona-web/
 ### Application state
 
 ```
-TanStack Query (server)          Zustand (local)
-─────────────────────────        ───────────────────────
-user playlists                   current track order
-playlist tracks                  locked tracks
-audio features per track         selected track
+TanStack Query (server)             Zustand (local)
+─────────────────────────           ───────────────────────
+user playlists                      current track order
+playlist tracks                     locked tracks
+available audio analysis            selected track
 ```
 
 ---
@@ -121,7 +179,7 @@ audio features per track         selected track
 
 ```sql
 -- User sessions and Spotify tokens
-users (
+user_sessions (
   id UUID PRIMARY KEY,
   spotify_id TEXT UNIQUE,
   access_token TEXT,
@@ -131,7 +189,7 @@ users (
 )
 ```
 
-In the MVP the editor state is not persisted — the order is saved directly to Spotify on confirm. No history or versioning.
+In the MVP, editor state is not persisted. The working order lives in the frontend and is saved to Spotify only when the user confirms.
 
 ---
 

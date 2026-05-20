@@ -14,7 +14,7 @@ Create your app at [developer.spotify.com](https://developer.spotify.com) and ge
 Configure the **Redirect URI** in the dashboard:
 ```
 http://localhost:5000/auth/callback        # development
-https://yourdomain.com/auth/callback       # production
+https://<production-host>/auth/callback    # production
 ```
 
 ---
@@ -47,7 +47,7 @@ playlist-modify-private
 
 ## Audio Features
 
-Endpoint that returns technical data per track:
+Spotify exposes audio feature endpoints, but they are currently marked as deprecated in the Web API reference. Sona must treat Spotify audio features as an optional provider, not as a guaranteed dependency.
 
 ```
 GET https://api.spotify.com/v1/audio-features/{id}
@@ -83,27 +83,15 @@ Each track may include a `preview_url` with a 30-second MP3 clip:
 }
 ```
 
-**Important:** Spotify is progressively removing previews. Many tracks return `preview_url: null`. The app must handle this case by disabling the preview button when null.
+Many tracks return `preview_url: null`. The app must handle this case by disabling the preview button when no URL is available.
 
 ---
 
 ## Development vs production mode
 
-In development mode your Spotify app is limited to **25 users**. Each user must be added manually in the Spotify dashboard.
+Spotify apps start in development mode. Access is limited to allowlisted users configured in the Spotify dashboard.
 
-To exit development mode and open the app to any user you need to request **Extended Access** from Spotify, describing your use case.
-
----
-
-## Monetization restrictions
-
-Your app falls under the **Non-Streaming SDA** category (it doesn't play music directly). According to Spotify's terms:
-
-- ❌ You cannot charge a subscription for access to the app
-- ✅ You can accept external donations (Ko-fi, Buy Me a Coffee) outside the app
-- ✅ You can charge for your own additional services (such as an AI layer) that don't directly depend on Spotify data
-
-Always check the [Spotify Developer Policy](https://developer.spotify.com/policy/) for the most up-to-date version.
+Before public release, check the current Spotify quota mode and policy requirements in the official dashboard and documentation.
 
 ---
 
@@ -114,7 +102,7 @@ Always check the [Spotify Developer Policy](https://developer.spotify.com/policy
 | `GET /me` | Get authenticated user data |
 | `GET /me/playlists` | List user playlists |
 | `GET /playlists/{id}/tracks` | Get tracks from a playlist |
-| `GET /audio-features/{id}` | Audio features for a track |
+| `GET /audio-features/{id}` | Optional audio features provider when available |
 | `PUT /playlists/{id}/tracks` | Reorder tracks in a playlist |
 
 ---

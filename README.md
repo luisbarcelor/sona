@@ -1,8 +1,8 @@
 # Sona
 
-> Organize your Spotify playlists by BPM, key, and energy. Sort and fine-tune your music flow.
+> Organize Spotify playlists with clearer track flow, compatibility signals, and manual control.
 
-Sona solves a specific problem: organizing a Spotify playlist is a blind process. You can't tell if there's a jarring BPM jump between tracks, clashing keys, or an energy drop at the wrong moment. Sona turns those technical data points into visible, actionable decisions.
+Sona helps make playlist ordering less blind. It surfaces available track metadata and technical analysis so users can spot abrupt tempo changes, key clashes, or energy drops before saving a new order back to Spotify.
 
 ---
 
@@ -18,6 +18,8 @@ Sona solves a specific problem: organizing a Spotify playlist is a blind process
 
 ## Quick start
 
+The implementation is being scaffolded. These requirements describe the intended local development environment for the MVP.
+
 ### Requirements
 
 - .NET 10 SDK
@@ -25,16 +27,12 @@ Sona solves a specific problem: organizing a Spotify playlist is a blind process
 - Docker + docker-compose
 - A [Spotify for Developers](https://developer.spotify.com) account
 
-### Setup
+### Planned local setup
 
 ```bash
-# Clone the repository
-git clone https://github.com/yourusername/sona
-cd sona
-
 # Configure environment variables
 cp .env.example .env
-# Edit .env with your Spotify Client ID and Client Secret
+# Fill in local Spotify app credentials
 
 # Start infrastructure (PostgreSQL)
 docker-compose up -d
@@ -52,8 +50,8 @@ npm run dev
 ### Required environment variables
 
 ```env
-SPOTIFY_CLIENT_ID=your_client_id
-SPOTIFY_CLIENT_SECRET=your_client_secret
+SPOTIFY_CLIENT_ID=
+SPOTIFY_CLIENT_SECRET=
 SPOTIFY_REDIRECT_URI=http://localhost:5000/auth/callback
 DATABASE_URL=postgresql://localhost:5432/sona
 ```
@@ -62,4 +60,4 @@ DATABASE_URL=postgresql://localhost:5432/sona
 
 ## Project status
 
-🚧 In development — MVP
+In development: MVP planning and scaffold.

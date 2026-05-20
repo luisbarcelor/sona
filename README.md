@@ -20,8 +20,8 @@ Sona solves a specific problem: organizing a Spotify playlist is a blind process
 
 ### Requirements
 
-- .NET 8 SDK
-- Node.js 20+
+- .NET 10 SDK
+- Node.js 24+
 - Docker + docker-compose
 - A [Spotify for Developers](https://developer.spotify.com) account
 

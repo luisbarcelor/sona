@@ -2,6 +2,7 @@ bin/
 obj/
 .vs/
 .vscode/
+.idea/
 
 node_modules/
 dist/
@@ -10,6 +11,12 @@ coverage/
 .env
 .env.*
 !.env.example
+appsettings.Local.json
+appsettings.*.Local.json
+*.pfx
+*.pem
+*.key
+*.crt
 
 *.user
 *.suo

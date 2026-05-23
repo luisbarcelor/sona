@@ -182,8 +182,8 @@ available audio analysis            selected track
 user_sessions (
   id UUID PRIMARY KEY,
   spotify_id TEXT UNIQUE,
-  access_token TEXT,
-  refresh_token TEXT,
+  access_token_encrypted TEXT,
+  refresh_token_encrypted TEXT,
   token_expires_at TIMESTAMP,
   created_at TIMESTAMP
 )

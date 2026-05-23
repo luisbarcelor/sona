@@ -27,32 +27,35 @@ The implementation is being scaffolded. These requirements describe the intended
 - Docker + docker-compose
 - A [Spotify for Developers](https://developer.spotify.com) account
 
-### Planned local setup
+### Local backend setup
 
 ```bash
-# Configure environment variables
-cp .env.example .env
-# Fill in local Spotify app credentials
+# Register this URI in the Spotify developer dashboard:
+# https://localhost:7001/spotify/callback
 
-# Start infrastructure (PostgreSQL)
-docker-compose up -d
+dotnet user-secrets set --project backend/Sona.Api "Spotify:ClientId" "YOUR_CLIENT_ID"
+dotnet user-secrets set --project backend/Sona.Api "Spotify:ClientSecret" "YOUR_CLIENT_SECRET"
 
-# Start the backend
-cd backend/Sona.Api
-dotnet run
+# Start the development backend
+cd backend
+dotnet run --project Sona.Api
 
 # Start the frontend
-cd web-app
+cd ../web-app
 npm install
 npm run dev
 ```
 
-### Required environment variables
+The current Spotify integration routes are development-only and store a single
+connected account's tokens in memory for testing. They must be replaced with
+encrypted per-user persistence before deployment.
+
+### Future persisted configuration
 
 ```env
 SPOTIFY_CLIENT_ID=
 SPOTIFY_CLIENT_SECRET=
-SPOTIFY_REDIRECT_URI=http://localhost:5000/auth/callback
+SPOTIFY_REDIRECT_URI=https://localhost:7001/spotify/callback
 DATABASE_URL=postgresql://localhost:5432/sona
 ```
 

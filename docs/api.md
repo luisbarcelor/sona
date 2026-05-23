@@ -7,21 +7,25 @@
 ## Base URL
 
 ```
-http://localhost:5000
+https://localhost:7001
 ```
 
 ---
 
-## Authentication
+## Current Development Integration
 
-### `GET /auth/login`
+The routes in this section exist only while the backend runs in the
+`Development` environment. The current implementation keeps one Spotify
+connection in memory to test the API integration.
+
+### `GET /spotify/connect`
 Starts the OAuth2 flow with Spotify. Redirects the user to Spotify's authorization screen.
 
 **Response:** `302 Redirect` → Spotify authorization URL
 
 ---
 
-### `GET /auth/callback`
+### `GET /spotify/callback`
 OAuth callback. Spotify redirects here with the authorization code. The backend exchanges it for an access token and refresh token.
 
 **Query params:**
@@ -30,35 +34,39 @@ OAuth callback. Spotify redirects here with the authorization code. The backend 
 | `code` | string | Spotify authorization code |
 | `state` | string | State value for CSRF verification |
 
-**Response:** `302 Redirect` → frontend with active session
-
----
-
-### `POST /auth/logout`
-Ends the user session.
-
-**Response:** `200 OK`
+**Response:** `200 OK` → confirms the in-memory Spotify connection
 
 ---
 
 ## Playlists
 
-### `GET /playlists`
-Returns all playlists for the authenticated user.
+### `GET /spotify/playlists`
+Returns a page of playlists for the Spotify account connected during development.
+
+**Query params:**
+| Param | Type | Description |
+|---|---|---|
+| `limit` | integer | Page size, from 1 to 50 |
+| `offset` | integer | Page offset, from 0 to 100000 |
 
 **Response:**
 ```json
-[
-  {
-    "id": "37i9dQZF1DX...",
-    "name": "My playlist",
-    "imageUrl": "https://...",
-    "totalTracks": 24
-  }
-]
+{
+  "items": [
+    {
+      "id": "37i9dQZF1DX...",
+      "name": "My playlist"
+    }
+  ],
+  "limit": 20,
+  "offset": 0,
+  "total": 1
+}
 ```
 
 ---
+
+## Planned API
 
 ### `GET /playlists/{id}`
 Returns a playlist with all its tracks and any available audio analysis.
@@ -129,8 +137,9 @@ Saves the new track order to Spotify after validating the requested order agains
 
 ## Notes
 
-- All endpoints except `/auth/login` and `/auth/callback` require an active session.
-- Spotify tokens are managed internally — the frontend never sees them directly.
+- The current `/spotify/*` routes are local-development integration tests, not production authentication.
+- The production implementation will require an app session and encrypted per-user Spotify token persistence.
+- Spotify tokens are managed server-side; the frontend must never receive the client secret.
 - `previewUrl` and `audioFeatures` can be `null`.
 - Reorder requests must contain each editable track exactly once.
 

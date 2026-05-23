@@ -13,8 +13,8 @@ Create your app at [developer.spotify.com](https://developer.spotify.com) and ge
 
 Configure the **Redirect URI** in the dashboard:
 ```
-http://localhost:5000/auth/callback        # development
-https://<production-host>/auth/callback    # production
+https://localhost:7001/spotify/callback        # development
+https://<production-host>/spotify/callback     # production
 ```
 
 ---
@@ -24,20 +24,25 @@ https://<production-host>/auth/callback    # production
 The flow Sona uses to authenticate users:
 
 ```
-1. User clicks "Login with Spotify"
+1. User opens /spotify/connect
 2. Backend redirects to: https://accounts.spotify.com/authorize
    with client_id, redirect_uri, scope, state
 3. User authorizes on Spotify
-4. Spotify redirects to /auth/callback with ?code=...
+4. Spotify redirects to /spotify/callback with ?code=...
 5. Backend exchanges the code for access_token + refresh_token
-6. Backend stores tokens in the database
-7. User is authenticated
+6. Current development implementation stores one connection in memory
+7. Production implementation must store encrypted tokens for the authenticated app user
 ```
 
-### Required scopes
+### Current scope
 
 ```
 playlist-read-private
+```
+
+Additional future features must request scopes only when implemented:
+
+```
 playlist-read-collaborative
 playlist-modify-public
 playlist-modify-private
@@ -99,11 +104,9 @@ Before public release, check the current Spotify quota mode and policy requireme
 
 | Endpoint | Use |
 |---|---|
-| `GET /me` | Get authenticated user data |
 | `GET /me/playlists` | List user playlists |
-| `GET /playlists/{id}/tracks` | Get tracks from a playlist |
-| `GET /audio-features/{id}` | Optional audio features provider when available |
-| `PUT /playlists/{id}/tracks` | Reorder tracks in a playlist |
+| `GET /playlists/{id}/items` | Future: get playlist items |
+| `PUT /playlists/{id}/items` | Future: reorder playlist items |
 
 ---
 

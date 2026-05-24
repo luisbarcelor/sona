@@ -13,7 +13,7 @@ Create your app at [developer.spotify.com](https://developer.spotify.com) and ge
 
 Configure the **Redirect URI** in the dashboard:
 ```
-https://localhost:7001/spotify/callback        # development
+https://127.0.0.1:7001/spotify/callback        # development
 https://<production-host>/spotify/callback     # production
 ```
 

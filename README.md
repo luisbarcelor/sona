@@ -31,7 +31,7 @@ The implementation is being scaffolded. These requirements describe the intended
 
 ```bash
 # Register this URI in the Spotify developer dashboard:
-# https://localhost:7001/spotify/callback
+# https://127.0.0.1:7001/spotify/callback
 
 dotnet user-secrets set --project backend/Sona.Api "Spotify:ClientId" "YOUR_CLIENT_ID"
 dotnet user-secrets set --project backend/Sona.Api "Spotify:ClientSecret" "YOUR_CLIENT_SECRET"
@@ -55,7 +55,7 @@ encrypted per-user persistence before deployment.
 ```env
 SPOTIFY_CLIENT_ID=
 SPOTIFY_CLIENT_SECRET=
-SPOTIFY_REDIRECT_URI=https://localhost:7001/spotify/callback
+SPOTIFY_REDIRECT_URI=https://127.0.0.1:7001/spotify/callback
 DATABASE_URL=postgresql://localhost:5432/sona
 ```
 
@@ -64,3 +64,10 @@ DATABASE_URL=postgresql://localhost:5432/sona
 ## Project status
 
 In development: MVP planning and scaffold.
+
+## Third-party branding
+
+`web-app/public/spotify-full-logo-white.svg` is an official Spotify brand asset
+used only for required content attribution. It remains subject to Spotify's
+branding guidelines and applicable rights, and is not licensed under this
+project's MIT license.

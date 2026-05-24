@@ -7,7 +7,7 @@
 ## Base URL
 
 ```
-https://localhost:7001
+https://127.0.0.1:7001
 ```
 
 ---

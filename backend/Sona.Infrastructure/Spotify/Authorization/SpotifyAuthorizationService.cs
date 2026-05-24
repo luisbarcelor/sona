@@ -1,4 +1,5 @@
 using System.Net;
+using Microsoft.Extensions.Options;
 using Sona.Infrastructure.Spotify.Configuration;
 using Sona.Infrastructure.Spotify.Models;
 
@@ -7,7 +8,7 @@ namespace Sona.Infrastructure.Spotify.Authorization;
 public class SpotifyAuthorizationService(
     SpotifyAuthClient authClient,
     DevelopmentSpotifyTokenStore tokenStore,
-    SpotifyOptions options)
+    IOptions<SpotifyOptions> options)
 {
     public string CreateAuthorizationUrl()
     {
@@ -18,15 +19,15 @@ public class SpotifyAuthorizationService(
         {
             ["response_type"] = "code",
             ["client_id"] = clientId,
-            ["scope"] = options.Scope,
-            ["redirect_uri"] = options.RedirectUri,
+            ["scope"] = options.Value.Scope,
+            ["redirect_uri"] = options.Value.RedirectUri,
             ["state"] = state
         };
 
         var query = string.Join("&", parameters.Select(parameter =>
             $"{WebUtility.UrlEncode(parameter.Key)}={WebUtility.UrlEncode(parameter.Value)}"));
 
-        return $"{options.AccountsBaseUrl.TrimEnd('/')}/authorize?{query}";
+        return $"{options.Value.AccountsBaseUrl.TrimEnd('/')}/authorize?{query}";
     }
 
     public async Task<SpotifyTokenResponse> CompleteAuthorizationAsync(
@@ -44,7 +45,7 @@ public class SpotifyAuthorizationService(
             clientId,
             clientSecret,
             code,
-            options.RedirectUri,
+            options.Value.RedirectUri,
             cancellationToken);
 
         tokenStore.Save(token);
@@ -85,8 +86,8 @@ public class SpotifyAuthorizationService(
 
     private (string ClientId, string ClientSecret) GetCredentials()
     {
-        var clientId = options.ClientId;
-        var clientSecret = options.ClientSecret;
+        var clientId = options.Value.ClientId;
+        var clientSecret = options.Value.ClientSecret;
 
         if (string.IsNullOrWhiteSpace(clientId) || string.IsNullOrWhiteSpace(clientSecret))
         {

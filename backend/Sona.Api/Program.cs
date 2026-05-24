@@ -1,36 +1,56 @@
-using Sona.Infrastructure.Spotify;
+using Microsoft.Extensions.Options;
+using Scalar.AspNetCore;
 using Sona.Infrastructure.Spotify.Api;
 using Sona.Infrastructure.Spotify.Authorization;
 using Sona.Infrastructure.Spotify.Configuration;
-using Scalar.AspNetCore;
 
-var builder = WebApplication.CreateBuilder(args);
+namespace Sona.Api;
 
-builder.Services.AddControllers();
-builder.Services.AddOpenApi();
-var spotifyOptions = builder.Configuration.GetSection("Spotify").Get<SpotifyOptions>() ?? new SpotifyOptions();
-builder.Services.AddSingleton(spotifyOptions);
-builder.Services.AddSingleton<DevelopmentSpotifyTokenStore>();
-builder.Services.AddScoped<SpotifyAuthorizationService>();
-builder.Services.AddHttpClient<SpotifyClient>(client =>
+internal static class Program
 {
-    var baseUrl = builder.Configuration["Spotify:BaseUrl"] ?? "https://api.spotify.com";
-    client.BaseAddress = new Uri(baseUrl);
-});
-builder.Services.AddHttpClient<SpotifyAuthClient>(client =>
-{
-    var baseUrl = builder.Configuration["Spotify:AccountsBaseUrl"] ?? "https://accounts.spotify.com";
-    client.BaseAddress = new Uri(baseUrl);
-});
+    private static void Main(string[] args)
+    {
+        var builder = WebApplication.CreateBuilder(args);
+        ConfigureServices(builder.Services, builder.Configuration);
 
-var app = builder.Build();
+        var app = builder.Build();
 
-if (app.Environment.IsDevelopment())
-{
-    app.MapOpenApi();
-    app.MapScalarApiReference();
+        if (app.Environment.IsDevelopment())
+        {
+            app.MapOpenApi();
+            app.MapScalarApiReference();
+        }
+
+        app.MapControllers();
+        app.Run();
+    }
+
+    private static void ConfigureServices(IServiceCollection services, ConfigurationManager configuration)
+    {
+        services.AddControllers();
+        services.AddOpenApi();
+
+        services.AddOptions<SpotifyOptions>()
+            .Bind(configuration.GetSection("Spotify"))
+            .Validate(options =>
+                    !string.IsNullOrWhiteSpace(options.BaseUrl) &&
+                    !string.IsNullOrWhiteSpace(options.AccountsBaseUrl) &&
+                    !string.IsNullOrWhiteSpace(options.RedirectUri),
+                "Spotify options are missing required values.")
+            .ValidateOnStart();
+
+        services.AddSingleton<DevelopmentSpotifyTokenStore>();
+        services.AddScoped<SpotifyAuthorizationService>();
+
+        services.AddHttpClient<SpotifyClient>((sp, client) =>
+        {
+            var spotify = sp.GetRequiredService<IOptions<SpotifyOptions>>().Value;
+            client.BaseAddress = new Uri(spotify.BaseUrl, UriKind.Absolute);
+        });
+        services.AddHttpClient<SpotifyAuthClient>((sp, client) =>
+        {
+            var spotify = sp.GetRequiredService<IOptions<SpotifyOptions>>().Value;
+            client.BaseAddress = new Uri(spotify.AccountsBaseUrl, UriKind.Absolute);
+        });
+    }
 }
-
-app.MapControllers();
-
-app.Run();

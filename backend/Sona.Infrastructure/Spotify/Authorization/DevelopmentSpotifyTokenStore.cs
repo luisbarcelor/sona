@@ -8,6 +8,7 @@ public class DevelopmentSpotifyTokenStore
 {
     private readonly ConcurrentDictionary<string, DateTimeOffset> _states = new();
     private StoredSpotifyToken? _token;
+    public StoredSpotifyToken? Get() => _token;
 
     public string CreateState()
     {
@@ -42,8 +43,6 @@ public class DevelopmentSpotifyTokenStore
             token.Scope,
             token.TokenType);
     }
-
-    public StoredSpotifyToken? Get() => _token;
 }
 
 public record StoredSpotifyToken(

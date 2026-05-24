@@ -2,15 +2,15 @@ namespace Sona.Infrastructure.Spotify.Configuration;
 
 public class SpotifyOptions
 {
-    public string BaseUrl { get; set; } = "https://api.spotify.com";
+    public string BaseUrl { get; set; } = string.Empty;
 
-    public string AccountsBaseUrl { get; set; } = "https://accounts.spotify.com";
+    public string AccountsBaseUrl { get; set; } = string.Empty;
 
     public string? ClientId { get; set; }
 
     public string? ClientSecret { get; set; }
 
-    public string RedirectUri { get; set; } = "http://127.0.0.1:5000/spotify/callback";
+    public string RedirectUri { get; set; } = string.Empty;
 
-    public string Scope { get; set; } = "playlist-read-private";
+    public string Scope { get; set; } = string.Empty;
 }

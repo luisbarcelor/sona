@@ -69,7 +69,9 @@ Returns a page of playlists for the Spotify account connected during development
 ## Planned API
 
 ### `GET /playlists/{id}`
-Returns a playlist with all its tracks and any available audio analysis.
+Returns an editable playlist view with its snapshot ID, track items, and any
+available optional analysis. The backend obtains playlist items from Spotify
+using `GET /playlists/{playlist_id}/items` and handles pagination.
 
 **Params:**
 | Param | Type | Description |
@@ -81,34 +83,35 @@ Returns a playlist with all its tracks and any available audio analysis.
 {
   "id": "37i9dQZF1DX...",
   "name": "My playlist",
-  "tracks": [
+  "snapshotId": "abc123",
+  "items": [
     {
-      "id": "4uLU6hMCjMI...",
+      "uri": "spotify:track:4uLU6hMCjMI...",
       "name": "Track name",
       "artist": "Artist",
       "albumImageUrl": "https://...",
-      "spotifyUri": "spotify:track:4uLU6hMCjMI...",
-      "previewUrl": null,
-      "audioFeatures": {
+      "spotifyUrl": "https://open.spotify.com/track/4uLU6hMCjMI...",
+      "analysis": {
         "bpm": 128.0,
         "key": 5,
-        "mode": 1,
         "energy": 0.85,
-        "valence": 0.62,
-        "danceability": 0.78,
-        "source": "spotify"
+        "source": "configured-provider"
       }
     }
   ]
 }
 ```
 
-`audioFeatures` is nullable when no configured analysis provider can supply data for the track.
+`analysis` is nullable when no configured provider can supply data. Spotify
+content shown in the editor must include Spotify attribution and a link back
+to the applicable Spotify content.
 
 ---
 
 ### `PUT /playlists/{id}/reorder`
-Saves the new track order to Spotify after validating the requested order against the playlist contents.
+Validates the edited order and applies reorder operations to Spotify using
+`PUT /playlists/{playlist_id}/items`. Reordering uses the loaded Spotify
+`snapshot_id` and the returned snapshot ID from each subsequent operation.
 
 **Params:**
 | Param | Type | Description |
@@ -118,11 +121,12 @@ Saves the new track order to Spotify after validating the requested order agains
 **Body:**
 ```json
 {
-  "trackIds": [
-    "4uLU6hMCjMI...",
-    "3n3Ppam7vgaVa...",
-    "..."
-  ]
+  "snapshotId": "abc123",
+  "itemUris": [
+    "spotify:track:4uLU6hMCjMI...",
+    "spotify:track:3n3Ppam7vgaVa..."
+  ],
+  "lockedPositions": [1, 7]
 }
 ```
 
@@ -140,8 +144,11 @@ Saves the new track order to Spotify after validating the requested order agains
 - The current `/spotify/*` routes are local-development integration tests, not production authentication.
 - The production implementation will require an app session and encrypted per-user Spotify token persistence.
 - Spotify tokens are managed server-side; the frontend must never receive the client secret.
-- `previewUrl` and `audioFeatures` can be `null`.
-- Reorder requests must contain each editable track exactly once.
+- Optional analysis can be `null`; the editor cannot depend on it.
+- Reorder requests must contain each editable item exactly once and preserve locked positions.
+- A stale snapshot or insufficient modification scope must produce an actionable save error.
+- Spotify `429` responses are retried only with bounded exponential backoff that respects `Retry-After`.
+- The backend does not persist Spotify playlist content or editor history for the MVP.
 
 ---
 

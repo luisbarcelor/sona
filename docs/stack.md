@@ -17,7 +17,7 @@
 | Local state | Zustand | Editor session state (track order, locks) |
 | Drag and drop | dnd-kit | Most solid DnD library for React |
 | Styles | Tailwind CSS | Utility-first, consistent, fast |
-| Auth | Spotify OAuth2 | Authorization Code Flow |
+| Auth | Spotify OAuth2 | Server-side Authorization Code Flow with refresh tokens |
 | Infra | Docker + docker-compose | Local PostgreSQL and deployment |
 
 ---
@@ -48,7 +48,11 @@ The MVP depends on external services whose availability and policies can change.
 They are complementary, not alternatives.
 
 ### Why PostgreSQL and Entity Framework Core
-The MVP only needs durable server-side state for sessions and token metadata, but PostgreSQL keeps the path open for later playlist snapshots, audit data, and cached analysis results. EF Core gives typed migrations and repository implementations without leaking persistence concerns into the domain layer.
+The MVP only needs durable server-side state for sessions and encrypted token
+metadata. Working playlist order and snapshot IDs remain transient so Spotify
+content is retained only for the immediate editing workflow. EF Core gives
+typed migrations and repository implementations without leaking persistence
+concerns into the domain layer.
 
 ### Why dnd-kit
 Playlist editing depends on precise, accessible drag and drop behavior. dnd-kit provides composable primitives for sortable lists without forcing a large UI framework or owning the app's state model.
@@ -60,7 +64,8 @@ The frontend needs a compact editor UI with repeated rows, badges, controls, and
 Docker Compose is used for local infrastructure only. It gives contributors a repeatable PostgreSQL setup without requiring a machine-level database install.
 
 ### Why not the Spotify Playback SDK
-The app organizes playlists, it does not provide playback. The Playback SDK would add account and device requirements that are outside the MVP. When Spotify provides a `preview_url`, the frontend can use a native HTML `<audio>` element.
+The app organizes playlists; it does not provide playback. Playback scopes,
+account requirements, and playback UI are outside the MVP.
 
 ---
 

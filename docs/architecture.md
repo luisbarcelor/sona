@@ -26,7 +26,7 @@
                          └───────────────────────┘
 
 External adapters live in Sona.Infrastructure:
-Spotify Web API, audio analysis providers, PostgreSQL, and token storage.
+Spotify Web API, optional analysis providers, PostgreSQL, and encrypted token storage.
 ```
 
 ---
@@ -47,19 +47,18 @@ backend/
 │   └── appsettings.json
 ├── Sona.Domain/
 │   ├── Entities/
-│   │   ├── Playlist.cs
-│   │   ├── PlaylistTrack.cs
-│   │   └── UserSession.cs
+│   │   ├── OrderingSession.cs
+│   │   └── ReorderPlan.cs
 │   ├── ValueObjects/
-│   │   ├── AudioFeatures.cs
-│   │   ├── SpotifyId.cs
+│   │   ├── TrackIdentity.cs
+│   │   ├── TrackAnalysis.cs
 │   │   └── TrackPosition.cs
 │   ├── Services/
-│   │   └── PlaylistOrderingService.cs
+│   │   └── OrderingService.cs
 │   └── Exceptions/
 ├── Sona.Application/
 │   ├── Abstractions/
-│   │   ├── IAudioAnalysisProvider.cs
+│   │   ├── ITrackAnalysisProvider.cs
 │   │   ├── IPlaylistGateway.cs
 │   │   ├── ISessionRepository.cs
 │   │   └── IUnitOfWork.cs
@@ -74,9 +73,10 @@ backend/
 │   └── DTOs/
 │       ├── PlaylistDto.cs
 │       ├── TrackDto.cs
-│       └── AudioFeaturesDto.cs
+│       └── TrackAnalysisDto.cs
 └── Sona.Infrastructure/
-    ├── AudioAnalysis/
+    ├── TrackAnalysis/
+    │   └── NullAnalysisProvider.cs
     ├── Spotify/
     │   ├── SpotifyAuthClient.cs
     │   └── SpotifyPlaylistGateway.cs
@@ -92,7 +92,7 @@ backend/
 |---|---|
 | `Sona.Domain` | Core entities, value objects, invariants, ordering rules |
 | `Sona.Application` | Use cases, ports, DTOs, transaction boundaries |
-| `Sona.Infrastructure` | Spotify clients, audio analysis providers, EF Core, repositories |
+| `Sona.Infrastructure` | Spotify clients, optional analysis providers, EF Core, repositories |
 | `Sona.Api` | Controllers, session middleware, HTTP configuration, dependency wiring |
 
 ### Project references
@@ -113,8 +113,8 @@ The domain layer owns behavior that should stay valid regardless of the UI or ex
 
 - Track order must contain the same tracks as the source playlist when saving a reorder.
 - Locked tracks keep their fixed positions during auto-sort.
-- Compatibility scoring handles missing audio analysis explicitly.
-- Spotify IDs are treated as value objects instead of raw strings inside the domain.
+- Compatibility signals handle missing analysis explicitly and are optional.
+- Provider identities are represented without making the domain a copy of Spotify response models.
 
 ### Application use cases
 
@@ -129,7 +129,10 @@ PreviewPlaylistReorder
 SavePlaylistReorder
 ```
 
-Each use case depends on abstractions such as `IPlaylistGateway`, `IAudioAnalysisProvider`, and `ISessionRepository`.
+Each use case depends on abstractions such as `IPlaylistGateway`,
+`ITrackAnalysisProvider`, and `ISessionRepository`. A
+`NullAnalysisProvider` keeps the ordering workflow functional without
+analysis data.
 
 ---
 
@@ -146,7 +149,8 @@ web-app/
 │   ├── components/
 │   │   ├── PlaylistCard/
 │   │   ├── TrackRow/
-│   │   └── AudioBadge/
+│   │   ├── LockToggle/
+│   │   └── ChangePreview/
 │   ├── pages/
 │   │   ├── Home.tsx
 │   │   ├── Playlists.tsx
@@ -167,8 +171,8 @@ web-app/
 TanStack Query (server)             Zustand (local)
 ─────────────────────────           ───────────────────────
 user playlists                      current track order
-playlist tracks                     locked tracks
-available audio analysis            selected track
+playlist items                      locked positions
+optional analysis signals           loaded snapshot ID
 ```
 
 ---
@@ -190,6 +194,9 @@ user_sessions (
 ```
 
 In the MVP, editor state is not persisted. The working order lives in the frontend and is saved to Spotify only when the user confirms.
+The server stores credentials and session state, not Spotify playlist content
+or change history. During a confirmed save it uses the loaded snapshot ID to
+apply snapshot-aware reorder operations.
 
 ---
 

@@ -1,8 +1,12 @@
 # Sona
 
-> Organize Spotify playlists with clearer track flow, compatibility signals, and manual control.
+> Reorder Spotify playlists with manual control, locked positions, and preview-before-save.
 
-Sona helps make playlist ordering less blind. It surfaces available track metadata and technical analysis so users can spot abrupt tempo changes, key clashes, or energy drops before saving a new order back to Spotify.
+Sona is a safe playlist ordering workspace. It lets users inspect available
+track metadata, reorder tracks manually or with simple rules, preserve locked
+positions, review the change, and then save the new order back to Spotify.
+Analysis-based compatibility signals are optional enrichment, not a dependency
+of the MVP.
 
 ---
 

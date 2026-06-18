@@ -33,6 +33,13 @@ type ApiError = {
   message?: string
 }
 
+type InitialAuthState = {
+  authMessage: string | null
+  error: string | null
+  needsConnection: boolean
+  shouldCleanUrl: boolean
+}
+
 class PlaylistRequestError extends Error {
   status: number
 
@@ -61,11 +68,34 @@ async function fetchPlaylists(requestedOffset: number, signal?: AbortSignal) {
   return body as SpotifyPlaylistPage
 }
 
+function getInitialAuthState(): InitialAuthState {
+  const callbackParams = new URLSearchParams(window.location.search)
+  const spotifyStatus = callbackParams.get('spotify')
+  const spotifyError = callbackParams.get('spotify_error')
+
+  return {
+    authMessage: spotifyError
+      ? `Spotify no ha podido completar la conexión: ${spotifyError}`
+      : spotifyStatus === 'connected'
+        ? 'Cuenta de Spotify conectada.'
+        : null,
+    error: null,
+    needsConnection: Boolean(spotifyError),
+    shouldCleanUrl: Boolean(spotifyStatus || spotifyError),
+  }
+}
+
+function getReconnectMessage() {
+  return 'La conexión con Spotify caducó o fue revocada. Vuelve a conectar tu cuenta.'
+}
+
 function App() {
+  const [initialAuthState] = useState(getInitialAuthState)
   const [page, setPage] = useState<SpotifyPlaylistPage | null>(null)
   const [offset, setOffset] = useState(0)
-  const [error, setError] = useState<string | null>(null)
-  const [needsConnection, setNeedsConnection] = useState(false)
+  const [error, setError] = useState<string | null>(initialAuthState.error)
+  const [authMessage, setAuthMessage] = useState<string | null>(initialAuthState.authMessage)
+  const [needsConnection, setNeedsConnection] = useState(initialAuthState.needsConnection)
   const [isLoading, setIsLoading] = useState(true)
 
   const loadPlaylists = useCallback(async (requestedOffset: number) => {
@@ -79,15 +109,19 @@ function App() {
         if (loadError.status === 401) {
           setNeedsConnection(true)
           setPage(null)
+          setError(null)
+          setAuthMessage(getReconnectMessage())
         } else {
           setNeedsConnection(false)
         }
       }
 
       setError(
-        loadError instanceof Error
-          ? loadError.message
-          : 'No se han podido obtener tus playlists.',
+        loadError instanceof PlaylistRequestError && loadError.status === 401
+          ? null
+          : loadError instanceof Error
+            ? loadError.message
+            : 'No se han podido obtener tus playlists.',
       )
     } finally {
       setIsLoading(false)
@@ -100,7 +134,37 @@ function App() {
     void loadPlaylists(requestedOffset)
   }
 
+  async function disconnectSpotify() {
+    setIsLoading(true)
+    setError(null)
+
+    try {
+      const response = await fetch('/spotify/connection', { method: 'DELETE' })
+
+      if (!response.ok) {
+        throw new Error('No se ha podido desconectar Spotify.')
+      }
+
+      setPage(null)
+      setOffset(0)
+      setNeedsConnection(true)
+      setAuthMessage('Cuenta de Spotify desconectada.')
+    } catch (disconnectError) {
+      setError(
+        disconnectError instanceof Error
+          ? disconnectError.message
+          : 'No se ha podido desconectar Spotify.',
+      )
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   useEffect(() => {
+    if (initialAuthState.shouldCleanUrl) {
+      window.history.replaceState(null, '', window.location.pathname)
+    }
+
     const controller = new AbortController()
     void fetchPlaylists(0, controller.signal)
       .then((initialPage) => {
@@ -116,12 +180,16 @@ function App() {
         if (loadError instanceof PlaylistRequestError && loadError.status === 401) {
           setNeedsConnection(true)
           setPage(null)
+          setError(null)
+          setAuthMessage(getReconnectMessage())
         }
 
         setError(
-          loadError instanceof Error
-            ? loadError.message
-            : 'No se han podido obtener tus playlists.',
+          loadError instanceof PlaylistRequestError && loadError.status === 401
+            ? null
+            : loadError instanceof Error
+              ? loadError.message
+              : 'No se han podido obtener tus playlists.',
         )
       })
       .finally(() => {
@@ -131,7 +199,7 @@ function App() {
       })
 
     return () => controller.abort()
-  }, [])
+  }, [initialAuthState.shouldCleanUrl])
 
   const startItem = page && page.total > 0 ? page.offset + 1 : 0
   const endItem = page ? Math.min(page.offset + page.items.length, page.total) : 0
@@ -176,13 +244,24 @@ function App() {
             <div>
               <h3>Conecta tu cuenta de Spotify</h3>
               <p>
-                Inicia sesión en la ventana nueva. Cuando el backend confirme la conexión,
-                vuelve aquí y pulsa Actualizar.
+                {authMessage ??
+                  'Inicia sesión con Spotify. Volverás automáticamente a Sona cuando la conexión esté lista.'}
               </p>
             </div>
-            <a className="spotify-button" href="/spotify/connect" target="_blank" rel="noreferrer">
+            <a className="spotify-button" href="/spotify/connect">
               Conectar Spotify
             </a>
+          </div>
+        )}
+
+        {authMessage && !needsConnection && (
+          <div className="notice success" role="status">
+            <p>{authMessage}</p>
+            {page && (
+              <button type="button" onClick={() => setAuthMessage(null)}>
+                Cerrar
+              </button>
+            )}
           </div>
         )}
 
@@ -212,6 +291,11 @@ function App() {
           <>
             <div className="results-meta" aria-live="polite">
               Mostrando {startItem}-{endItem} de {page.total}
+            </div>
+            <div className="connection-actions">
+              <button type="button" onClick={() => void disconnectSpotify()} disabled={isLoading}>
+                Desconectar Spotify
+              </button>
             </div>
             <div className="playlist-grid">
               {page.items.map((playlist) => (

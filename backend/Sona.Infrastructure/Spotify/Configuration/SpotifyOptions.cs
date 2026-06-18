@@ -12,5 +12,7 @@ public class SpotifyOptions
 
     public string RedirectUri { get; set; } = string.Empty;
 
+    public string FrontendUrl { get; set; } = string.Empty;
+
     public string Scope { get; set; } = string.Empty;
 }

@@ -30,7 +30,7 @@ public class SpotifyAuthorizationService(
         return $"{options.Value.AccountsBaseUrl.TrimEnd('/')}/authorize?{query}";
     }
 
-    public async Task<SpotifyTokenResponse> CompleteAuthorizationAsync(
+    public async Task<SpotifyAuthorizationResult> CompleteAuthorizationAsync(
         string code,
         string state,
         CancellationToken cancellationToken = default)
@@ -48,13 +48,15 @@ public class SpotifyAuthorizationService(
             options.Value.RedirectUri,
             cancellationToken);
 
-        tokenStore.Save(token);
-        return token;
+        var sessionId = tokenStore.SaveAuthorization(token);
+        return new SpotifyAuthorizationResult(token, sessionId);
     }
 
-    public async Task<string?> GetAccessTokenAsync(CancellationToken cancellationToken = default)
+    public async Task<string?> GetAccessTokenAsync(
+        string? sessionId,
+        CancellationToken cancellationToken = default)
     {
-        var storedToken = tokenStore.Get();
+        var storedToken = tokenStore.Get(sessionId);
 
         if (storedToken is null)
         {
@@ -80,8 +82,18 @@ public class SpotifyAuthorizationService(
             storedToken.RefreshToken,
             cancellationToken);
 
-        tokenStore.Save(refreshedToken);
+        tokenStore.SaveRefresh(refreshedToken, storedToken.SessionId);
         return refreshedToken.AccessToken;
+    }
+
+    public bool IsConnected(string? sessionId)
+    {
+        return tokenStore.Get(sessionId) is not null;
+    }
+
+    public void Disconnect(string? sessionId)
+    {
+        tokenStore.Clear(sessionId);
     }
 
     private (string ClientId, string ClientSecret) GetCredentials()
@@ -98,3 +110,5 @@ public class SpotifyAuthorizationService(
         return (clientId, clientSecret);
     }
 }
+
+public record SpotifyAuthorizationResult(SpotifyTokenResponse Token, string SessionId);

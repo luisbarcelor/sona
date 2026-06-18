@@ -188,6 +188,10 @@ button:disabled {
   border-color: #493229;
 }
 
+.success {
+  border-color: #284533;
+}
+
 .error button {
   flex-shrink: 0;
 }
@@ -205,6 +209,12 @@ button:disabled {
   margin-bottom: 18px;
   color: #8e9892;
   font-size: 14px;
+}
+
+.connection-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin: -43px 0 18px;
 }
 
 .playlist-grid {
@@ -321,6 +331,11 @@ button:disabled {
   .notice {
     align-items: start;
     flex-direction: column;
+  }
+
+  .connection-actions {
+    justify-content: flex-start;
+    margin: 0 0 18px;
   }
 
   .playlist-grid {

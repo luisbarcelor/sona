@@ -35,7 +35,8 @@ internal static class Program
             .Validate(options =>
                     !string.IsNullOrWhiteSpace(options.BaseUrl) &&
                     !string.IsNullOrWhiteSpace(options.AccountsBaseUrl) &&
-                    !string.IsNullOrWhiteSpace(options.RedirectUri),
+                    !string.IsNullOrWhiteSpace(options.RedirectUri) &&
+                    !string.IsNullOrWhiteSpace(options.FrontendUrl),
                 "Spotify options are missing required values.")
             .ValidateOnStart();
 

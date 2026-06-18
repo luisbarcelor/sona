@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 using Sona.Infrastructure.Spotify;
 using Sona.Infrastructure.Spotify.Api;
 using Sona.Infrastructure.Spotify.Authorization;
+using Sona.Infrastructure.Spotify.Configuration;
 
 namespace Sona.Api.Controllers;
 
@@ -10,8 +12,11 @@ namespace Sona.Api.Controllers;
 public class SpotifyController(
     SpotifyClient spotifyClient,
     SpotifyAuthorizationService authorizationService,
-    IWebHostEnvironment environment) : ControllerBase
+    IWebHostEnvironment environment,
+    IOptions<SpotifyOptions> options) : ControllerBase
 {
+    private const string SessionCookieName = "sona_spotify_session";
+
     [HttpGet("connect")]
     public IActionResult Connect()
     {
@@ -44,40 +49,64 @@ public class SpotifyController(
 
         if (error is not null)
         {
-            return BadRequest(new { message = $"Spotify authorization failed: {error}." });
+            return RedirectToFrontend(error);
         }
 
         if (string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(state))
         {
-            return BadRequest(new { message = "Spotify callback state or authorization code is invalid." });
+            return RedirectToFrontend("invalid_callback");
         }
 
         try
         {
-            var token = await authorizationService.CompleteAuthorizationAsync(
+            var result = await authorizationService.CompleteAuthorizationAsync(
                 code,
                 state,
                 cancellationToken);
 
-            return Ok(new
-            {
-                message = "Spotify account connected. Call GET /spotify/playlists to verify the connection.",
-                expiresIn = token.ExpiresIn,
-                scope = token.Scope
-            });
+            Response.Cookies.Append(SessionCookieName, result.SessionId, CreateSessionCookieOptions());
+
+            return RedirectToFrontend();
         }
         catch (SpotifyApiException exception)
         {
-            return StatusCode((int)exception.StatusCode, new { message = exception.Message });
+            return RedirectToFrontend(exception.Message);
         }
         catch (ArgumentException exception)
         {
-            return BadRequest(new { message = exception.Message });
+            return RedirectToFrontend(exception.Message);
         }
         catch (InvalidOperationException exception)
         {
-            return Problem(exception.Message, statusCode: StatusCodes.Status500InternalServerError);
+            return RedirectToFrontend(exception.Message);
         }
+    }
+
+    [HttpGet("connection")]
+    public IActionResult GetConnection()
+    {
+        if (!environment.IsDevelopment())
+        {
+            return NotFound();
+        }
+
+        return Ok(new
+        {
+            connected = authorizationService.IsConnected(GetSessionId())
+        });
+    }
+
+    [HttpDelete("connection")]
+    public IActionResult Disconnect()
+    {
+        if (!environment.IsDevelopment())
+        {
+            return NotFound();
+        }
+
+        ClearConnection();
+
+        return NoContent();
     }
 
     [HttpGet("playlists")]
@@ -93,7 +122,7 @@ public class SpotifyController(
 
         try
         {
-            var accessToken = await authorizationService.GetAccessTokenAsync(cancellationToken);
+            var accessToken = await authorizationService.GetAccessTokenAsync(GetSessionId(), cancellationToken);
 
             if (accessToken is null)
             {
@@ -117,11 +146,52 @@ public class SpotifyController(
         }
         catch (SpotifyApiException exception)
         {
+            if (exception.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+            {
+                ClearConnection();
+            }
+
             return StatusCode((int)exception.StatusCode, new { message = exception.Message });
         }
         catch (InvalidOperationException exception)
         {
             return Problem(exception.Message, statusCode: StatusCodes.Status500InternalServerError);
         }
+    }
+
+    private string? GetSessionId()
+    {
+        return Request.Cookies.TryGetValue(SessionCookieName, out var sessionId)
+            ? sessionId
+            : null;
+    }
+
+    private static CookieOptions CreateSessionCookieOptions()
+    {
+        return new CookieOptions
+        {
+            HttpOnly = true,
+            IsEssential = true,
+            SameSite = SameSiteMode.Lax,
+            Secure = false
+        };
+    }
+
+    private void ClearConnection()
+    {
+        authorizationService.Disconnect(GetSessionId());
+        Response.Cookies.Delete(SessionCookieName, CreateSessionCookieOptions());
+    }
+
+    private IActionResult RedirectToFrontend(string? error = null)
+    {
+        var frontendUrl = options.Value.FrontendUrl;
+
+        if (string.IsNullOrWhiteSpace(error))
+        {
+            return Redirect($"{frontendUrl.TrimEnd('/')}?spotify=connected");
+        }
+
+        return Redirect($"{frontendUrl.TrimEnd('/')}?spotify_error={Uri.EscapeDataString(error)}");
     }
 }

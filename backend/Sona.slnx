@@ -3,4 +3,5 @@
   <Project Path="Sona.Application/Sona.Application.csproj" />
   <Project Path="Sona.Domain/Sona.Domain.csproj" />
   <Project Path="Sona.Infrastructure/Sona.Infrastructure.csproj" />
+  <Project Path="Sona.Tests/Sona.Tests.csproj" />
 </Solution>

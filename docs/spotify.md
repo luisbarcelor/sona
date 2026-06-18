@@ -31,12 +31,19 @@ client secret remains in backend configuration and is never sent to the SPA.
 3. User authorizes on Spotify
 4. Spotify redirects to /spotify/callback with ?code=...
 5. Backend exchanges the code for access_token + refresh_token
-6. Current development implementation stores one connection in memory
-7. Production implementation must store encrypted tokens for the authenticated app user
+6. Backend stores one development connection in memory
+7. Backend sets an HTTP-only development session cookie
+8. Backend redirects the browser back to http://127.0.0.1:5173
+9. Production implementation must store encrypted tokens for the authenticated app user
 ```
 
 Access tokens must be refreshed server-side when they expire. Logout clears
 the local session and any stored Spotify tokens for that session.
+
+The current development cookie is named `sona_spotify_session`. It contains a
+random local session identifier only; Spotify access and refresh tokens are not
+sent to the browser. The cookie is lost as a useful session pointer when the
+backend restarts because the matching token record is in memory only.
 
 ### Scopes
 
@@ -96,6 +103,8 @@ shown as unavailable rather than inferred.
 
 - Read Spotify's returned error message and map it to meaningful user feedback.
 - Refresh expired access tokens server-side; do not ask the user to reconnect for routine token expiration.
+- Clear the local development connection when Spotify returns `401`, because
+  revoked or invalid credentials should move the UI back to reconnect state.
 - On HTTP `429`, honor `Retry-After` and use bounded exponential backoff; never retry in a tight loop.
 - Surface authorization failures when required playlist modification scopes have not been granted.
 - Preserve the loaded `snapshot_id` through save so concurrent playlist edits do not become silent overwrites.

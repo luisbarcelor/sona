@@ -27,8 +27,9 @@ npm install
 npm run dev
 ```
 
-In development, Vite proxies `/spotify` requests to
-`http://127.0.0.1:5000`. See the project [README](../README.md) and
+In development, Vite listens on `http://127.0.0.1:5173` and proxies
+`/spotify` requests to `http://127.0.0.1:5000`. See the project
+[README](../README.md) and
 [Spotify integration notes](../docs/spotify.md) for backend setup and API
 constraints.
 

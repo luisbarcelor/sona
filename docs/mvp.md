@@ -652,6 +652,11 @@ Mitigation:
 - Select playlist.
 - Fetch playlist tracks.
 
+Current implementation checkpoint: Spotify login, callback handling, development
+session cookie, logout/disconnect, token refresh, and playlist listing are in
+place for local development. Selecting a playlist and fetching its tracks are
+the next playlist-loading steps.
+
 ### Phase 2: Editor Foundation
 
 - Display tracks.

@@ -16,7 +16,9 @@ https://127.0.0.1:7001
 
 The routes in this section exist only while the backend runs in the
 `Development` environment. The current implementation keeps one Spotify
-connection in memory to test the API integration.
+connection in memory to test the API integration. A successful callback sets
+an HTTP-only development session cookie named `sona_spotify_session`; the
+cookie contains only a local session identifier, not Spotify tokens.
 
 ### `GET /spotify/connect`
 Starts the OAuth2 flow with Spotify. Redirects the user to Spotify's authorization screen.
@@ -33,8 +35,34 @@ OAuth callback. Spotify redirects here with the authorization code. The backend 
 |---|---|---|
 | `code` | string | Spotify authorization code |
 | `state` | string | State value for CSRF verification |
+| `error` | string | Spotify authorization error, when authorization fails |
 
-**Response:** `200 OK` → confirms the in-memory Spotify connection
+**Response:** `302 Redirect` → configured frontend URL with one of:
+
+| Query | Meaning |
+|---|---|
+| `spotify=connected` | The backend exchanged the code, stored tokens server-side, and set the dev session cookie. |
+| `spotify_error=...` | Authorization failed or callback validation failed. |
+
+---
+
+### `GET /spotify/connection`
+Returns whether the current browser has a matching development Spotify session.
+
+**Response:**
+```json
+{
+  "connected": true
+}
+```
+
+---
+
+### `DELETE /spotify/connection`
+Clears the current development Spotify connection and deletes the
+`sona_spotify_session` cookie.
+
+**Response:** `204 No Content`
 
 ---
 
@@ -42,6 +70,8 @@ OAuth callback. Spotify redirects here with the authorization code. The backend 
 
 ### `GET /spotify/playlists`
 Returns a page of playlists for the Spotify account connected during development.
+If Spotify returns `401`, the backend clears the development token and session
+cookie before returning `401` to the frontend.
 
 **Query params:**
 | Param | Type | Description |
@@ -142,6 +172,7 @@ Validates the edited order and applies reorder operations to Spotify using
 ## Notes
 
 - The current `/spotify/*` routes are local-development integration tests, not production authentication.
+- The development session cookie identifies the local browser session only; Spotify access and refresh tokens remain server-side.
 - The production implementation will require an app session and encrypted per-user Spotify token persistence.
 - Spotify tokens are managed server-side; the frontend must never receive the client secret.
 - Optional analysis can be `null`; the editor cannot depend on it.

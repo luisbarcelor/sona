@@ -17,6 +17,7 @@ of the MVP.
 - [Architecture](./docs/architecture.md)
 - [API — Endpoints](./docs/api.md)
 - [Spotify — Integration notes](./docs/spotify.md)
+- [Technical debt](./TECHNICAL_DEBT.md)
 
 ---
 
@@ -44,15 +45,31 @@ dotnet user-secrets set --project backend/Sona.Api "Spotify:ClientSecret" "YOUR_
 cd backend
 dotnet run --project Sona.Api
 
-# Start the frontend
+# Start the frontend at http://127.0.0.1:5173
 cd ../web-app
 npm install
 npm run dev
 ```
 
 The current Spotify integration routes are development-only and store a single
-connected account's tokens in memory for testing. They must be replaced with
-encrypted per-user persistence before deployment.
+connected account's tokens in memory for testing. The callback sets an
+HTTP-only development session cookie and redirects back to the frontend. The
+connection is lost when the backend process restarts, and the development
+store must be replaced with encrypted per-user persistence before deployment.
+
+### Checks
+
+```bash
+cd backend
+dotnet test Sona.slnx
+
+cd ../web-app
+npm run lint
+npm run build
+```
+
+Stop any running `Sona.Api` process before `dotnet test` if Windows reports
+locked build output files.
 
 ### Future persisted configuration
 
@@ -67,7 +84,9 @@ DATABASE_URL=postgresql://localhost:5432/sona
 
 ## Project status
 
-In development: MVP planning and scaffold.
+In development: Spotify authentication and playlist listing are working for
+local development and covered by backend tests. Playlist track loading and the
+editor workflow are not implemented yet.
 
 ## Third-party branding
 

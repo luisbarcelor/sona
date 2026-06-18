@@ -33,6 +33,12 @@ Spotify Web API, optional analysis providers, PostgreSQL, and encrypted token st
 
 ## Backend
 
+The structure below is the target MVP architecture. The current development
+authentication implementation is smaller: `SpotifyController` calls the Spotify
+infrastructure services directly for auth and playlist listing. Application
+use cases and domain ordering rules will be introduced as playlist loading,
+editing, and save behavior are built.
+
 ### Folder structure
 
 ```

@@ -109,6 +109,45 @@ public class SpotifyController(
         return NoContent();
     }
 
+    [HttpGet("me")]
+    public async Task<IActionResult> GetCurrentUser(CancellationToken cancellationToken = default)
+    {
+        if (!environment.IsDevelopment())
+        {
+            return NotFound();
+        }
+
+        try
+        {
+            var accessToken = await authorizationService.GetAccessTokenAsync(GetSessionId(), cancellationToken);
+
+            if (accessToken is null)
+            {
+                return Unauthorized(new
+                {
+                    message = "Spotify is not connected. Open GET /spotify/connect first."
+                });
+            }
+
+            var user = await spotifyClient.GetCurrentUserProfileAsync(accessToken, cancellationToken);
+
+            return Ok(user);
+        }
+        catch (SpotifyApiException exception)
+        {
+            if (exception.StatusCode is System.Net.HttpStatusCode.Unauthorized or System.Net.HttpStatusCode.Forbidden)
+            {
+                ClearConnection();
+            }
+
+            return StatusCode((int)exception.StatusCode, new { message = exception.Message });
+        }
+        catch (InvalidOperationException exception)
+        {
+            return Problem(exception.Message, statusCode: StatusCodes.Status500InternalServerError);
+        }
+    }
+
     [HttpGet("playlists")]
     public async Task<IActionResult> GetPlaylists(
         [FromQuery] int limit = 20,

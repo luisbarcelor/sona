@@ -10,6 +10,34 @@ public class SpotifyClient(HttpClient httpClient)
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
+    public async Task<SpotifyCurrentUser> GetCurrentUserProfileAsync(
+        string accessToken,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(accessToken))
+        {
+            throw new ArgumentException("Spotify access token is required.", nameof(accessToken));
+        }
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/v1/me");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+        using var response = await SendWithRetryAsync(request, cancellationToken);
+
+        if (response.IsSuccessStatusCode)
+        {
+            var user = await response.Content.ReadFromJsonAsync<SpotifyCurrentUser>(
+                JsonOptions,
+                cancellationToken);
+
+            return user ?? throw new SpotifyApiException(
+                HttpStatusCode.OK,
+                "Spotify returned an empty user profile response.");
+        }
+
+        throw await CreateExceptionAsync(response, cancellationToken);
+    }
+
     public async Task<SpotifyPagedResponse<SpotifyPlaylist>> GetCurrentUserPlaylistsAsync(
         string accessToken,
         int limit = 20,

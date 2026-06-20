@@ -29,6 +29,12 @@ type SpotifyPlaylistPage = {
   total: number
 }
 
+type SpotifyUserProfile = {
+  id: string
+  display_name: string | null
+  images: SpotifyImage[]
+}
+
 type ApiError = {
   message?: string
 }
@@ -40,7 +46,7 @@ type InitialAuthState = {
   shouldCleanUrl: boolean
 }
 
-class PlaylistRequestError extends Error {
+class ApiRequestError extends Error {
   status: number
 
   constructor(message: string, status: number) {
@@ -62,10 +68,26 @@ async function fetchPlaylists(requestedOffset: number, signal?: AbortSignal) {
         ? body.message
         : 'No se han podido obtener tus playlists.'
 
-    throw new PlaylistRequestError(message, response.status)
+    throw new ApiRequestError(message, response.status)
   }
 
   return body as SpotifyPlaylistPage
+}
+
+async function fetchCurrentUser(signal?: AbortSignal) {
+  const response = await fetch('/spotify/me', { signal })
+  const body = (await response.json().catch(() => null)) as SpotifyUserProfile | ApiError | null
+
+  if (!response.ok) {
+    const message =
+      body && 'message' in body && body.message
+        ? body.message
+        : 'No se ha podido obtener tu perfil de Spotify.'
+
+    throw new ApiRequestError(message, response.status)
+  }
+
+  return body as SpotifyUserProfile
 }
 
 function getInitialAuthState(): InitialAuthState {
@@ -89,9 +111,14 @@ function getReconnectMessage() {
   return 'La conexión con Spotify caducó o fue revocada. Vuelve a conectar tu cuenta.'
 }
 
+function isConnectionFailure(error: unknown) {
+  return error instanceof ApiRequestError && (error.status === 401 || error.status === 403)
+}
+
 function App() {
   const [initialAuthState] = useState(getInitialAuthState)
   const [page, setPage] = useState<SpotifyPlaylistPage | null>(null)
+  const [profile, setProfile] = useState<SpotifyUserProfile | null>(null)
   const [offset, setOffset] = useState(0)
   const [error, setError] = useState<string | null>(initialAuthState.error)
   const [authMessage, setAuthMessage] = useState<string | null>(initialAuthState.authMessage)
@@ -105,10 +132,11 @@ function App() {
       setPage(body)
       setOffset(requestedOffset)
     } catch (loadError) {
-      if (loadError instanceof PlaylistRequestError) {
-        if (loadError.status === 401) {
+      if (loadError instanceof ApiRequestError) {
+        if (isConnectionFailure(loadError)) {
           setNeedsConnection(true)
           setPage(null)
+          setProfile(null)
           setError(null)
           setAuthMessage(getReconnectMessage())
         } else {
@@ -117,7 +145,7 @@ function App() {
       }
 
       setError(
-        loadError instanceof PlaylistRequestError && loadError.status === 401
+        isConnectionFailure(loadError)
           ? null
           : loadError instanceof Error
             ? loadError.message
@@ -146,6 +174,7 @@ function App() {
       }
 
       setPage(null)
+      setProfile(null)
       setOffset(0)
       setNeedsConnection(true)
       setAuthMessage('Cuenta de Spotify desconectada.')
@@ -166,26 +195,59 @@ function App() {
     }
 
     const controller = new AbortController()
-    void fetchPlaylists(0, controller.signal)
-      .then((initialPage) => {
+    void Promise.allSettled([
+      fetchCurrentUser(controller.signal),
+      fetchPlaylists(0, controller.signal),
+    ])
+      .then(([profileResult, playlistsResult]) => {
+        const failedResult = [profileResult, playlistsResult].find(
+          (result) => result.status === 'rejected',
+        )
+
+        if (failedResult?.status === 'rejected' && isConnectionFailure(failedResult.reason)) {
+          setNeedsConnection(true)
+          setPage(null)
+          setProfile(null)
+          setError(null)
+          setAuthMessage(getReconnectMessage())
+          return
+        }
+
+        if (profileResult.status === 'fulfilled') {
+          setProfile(profileResult.value)
+        }
+
+        if (playlistsResult.status !== 'fulfilled') {
+          throw playlistsResult.reason
+        }
+
         setNeedsConnection(false)
-        setPage(initialPage)
+        setPage(playlistsResult.value)
         setOffset(0)
+
+        if (profileResult.status === 'rejected') {
+          setError(
+            profileResult.reason instanceof Error
+              ? profileResult.reason.message
+              : 'No se ha podido obtener tu perfil de Spotify.',
+          )
+        }
       })
       .catch((loadError: unknown) => {
         if (loadError instanceof DOMException && loadError.name === 'AbortError') {
           return
         }
 
-        if (loadError instanceof PlaylistRequestError && loadError.status === 401) {
+        if (isConnectionFailure(loadError)) {
           setNeedsConnection(true)
           setPage(null)
+          setProfile(null)
           setError(null)
           setAuthMessage(getReconnectMessage())
         }
 
         setError(
-          loadError instanceof PlaylistRequestError && loadError.status === 401
+          isConnectionFailure(loadError)
             ? null
             : loadError instanceof Error
               ? loadError.message
@@ -205,9 +267,24 @@ function App() {
   const endItem = page ? Math.min(page.offset + page.items.length, page.total) : 0
   const canGoBack = offset > 0 && !isLoading
   const canGoForward = Boolean(page && offset + PAGE_SIZE < page.total && !isLoading)
+  const profileName = profile ? profile.display_name ?? profile.id : ''
 
   return (
     <main className="shell">
+      {profile && (
+        <aside className="account-chip" aria-label="Perfil de Spotify conectado">
+          {profile.images[0]?.url ? (
+            <img src={profile.images[0].url} alt="" />
+          ) : (
+            <span aria-hidden="true">{profileName?.slice(0, 1).toUpperCase()}</span>
+          )}
+          <div>
+            <p>Conectado como</p>
+            <strong>{profileName}</strong>
+          </div>
+        </aside>
+      )}
+
       <header className="hero">
         <div className="brand">
           <span className="brand-mark" aria-hidden="true">

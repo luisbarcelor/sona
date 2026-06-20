@@ -30,7 +30,7 @@ public class SpotifyAuthorizationFlowTests
         Assert.Equal("/authorize", uri.AbsolutePath);
         Assert.Equal("code", query["response_type"]);
         Assert.Equal("client-id", query["client_id"]);
-        Assert.Equal("playlist-read-private", query["scope"]);
+        Assert.Equal("playlist-read-private user-read-private", query["scope"]);
         Assert.Equal("https://127.0.0.1:7001/spotify/callback", query["redirect_uri"]);
         Assert.False(string.IsNullOrWhiteSpace(query["state"]));
     }
@@ -66,6 +66,95 @@ public class SpotifyAuthorizationFlowTests
         Assert.False(string.IsNullOrWhiteSpace(sessionId));
         Assert.Contains("httponly", GetSetCookieHeader(fixture.ResponseHeaders).ToLowerInvariant());
         Assert.NotNull(fixture.TokenStore.Get(sessionId));
+    }
+
+    [Fact]
+    public async Task GetCurrentUser_WithValidSessionCookie_ReturnsProfile()
+    {
+        var fixture = CreateFixture(apiHandler: new DelegateHttpMessageHandler(request =>
+        {
+            Assert.Equal("/v1/me", request.RequestUri?.AbsolutePath);
+
+            return JsonResponse(HttpStatusCode.OK, """
+                {
+                  "display_name": "Sona Tester",
+                  "external_urls": { "spotify": "https://open.spotify.com/user/sona-tester" },
+                  "href": "https://api.spotify.test/v1/users/sona-tester",
+                  "id": "sona-tester",
+                  "images": [
+                    {
+                      "url": "https://i.scdn.co/image/profile",
+                      "height": 300,
+                      "width": 300
+                    }
+                  ],
+                  "type": "user",
+                  "uri": "spotify:user:sona-tester"
+                }
+                """);
+        }));
+        var sessionId = SaveToken(fixture.TokenStore);
+        SetCookie(fixture.HttpContext, "sona_spotify_session", sessionId);
+
+        var result = Assert.IsType<OkObjectResult>(await fixture.Controller.GetCurrentUser());
+        var profile = Assert.IsType<SpotifyCurrentUser>(result.Value);
+
+        Assert.Equal("sona-tester", profile.Id);
+        Assert.Equal("Sona Tester", profile.DisplayName);
+        Assert.Single(profile.Images);
+        Assert.Equal("https://i.scdn.co/image/profile", profile.Images[0].Url);
+    }
+
+    [Fact]
+    public async Task GetCurrentUser_WhenSpotifyReturnsUnauthorized_ClearsSession()
+    {
+        var fixture = CreateFixture(apiHandler: new DelegateHttpMessageHandler(request =>
+        {
+            Assert.Equal("/v1/me", request.RequestUri?.AbsolutePath);
+
+            return JsonResponse(HttpStatusCode.Unauthorized, """
+                {
+                  "error": {
+                    "status": 401,
+                    "message": "The access token expired"
+                  }
+                }
+                """);
+        }));
+        var sessionId = SaveToken(fixture.TokenStore);
+        SetCookie(fixture.HttpContext, "sona_spotify_session", sessionId);
+
+        var result = Assert.IsType<ObjectResult>(await fixture.Controller.GetCurrentUser());
+
+        Assert.Equal(StatusCodes.Status401Unauthorized, result.StatusCode);
+        Assert.Null(fixture.TokenStore.Get(sessionId));
+        Assert.Contains("sona_spotify_session=", GetSetCookieHeader(fixture.ResponseHeaders));
+    }
+
+    [Fact]
+    public async Task GetCurrentUser_WhenSpotifyReturnsForbidden_ClearsSession()
+    {
+        var fixture = CreateFixture(apiHandler: new DelegateHttpMessageHandler(request =>
+        {
+            Assert.Equal("/v1/me", request.RequestUri?.AbsolutePath);
+
+            return JsonResponse(HttpStatusCode.Forbidden, """
+                {
+                  "error": {
+                    "status": 403,
+                    "message": "Insufficient client scope"
+                  }
+                }
+                """);
+        }));
+        var sessionId = SaveToken(fixture.TokenStore);
+        SetCookie(fixture.HttpContext, "sona_spotify_session", sessionId);
+
+        var result = Assert.IsType<ObjectResult>(await fixture.Controller.GetCurrentUser());
+
+        Assert.Equal(StatusCodes.Status403Forbidden, result.StatusCode);
+        Assert.Null(fixture.TokenStore.Get(sessionId));
+        Assert.Contains("sona_spotify_session=", GetSetCookieHeader(fixture.ResponseHeaders));
     }
 
     [Fact]
@@ -160,7 +249,7 @@ public class SpotifyAuthorizationFlowTests
                   "access_token": "new-access-token",
                   "token_type": "Bearer",
                   "expires_in": 3600,
-                  "scope": "playlist-read-private"
+                  "scope": "playlist-read-private user-read-private"
                 }
                 """)));
         var sessionId = fixture.TokenStore.SaveAuthorization(new SpotifyTokenResponse
@@ -168,7 +257,7 @@ public class SpotifyAuthorizationFlowTests
             AccessToken = "expired-access-token",
             RefreshToken = "refresh-token",
             ExpiresIn = -60,
-            Scope = "playlist-read-private",
+            Scope = "playlist-read-private user-read-private",
             TokenType = "Bearer"
         });
 
@@ -207,7 +296,7 @@ public class SpotifyAuthorizationFlowTests
             ClientSecret = "client-secret",
             RedirectUri = "https://127.0.0.1:7001/spotify/callback",
             FrontendUrl = "http://127.0.0.1:5173",
-            Scope = "playlist-read-private"
+            Scope = "playlist-read-private user-read-private"
         });
 
         var tokenStore = new DevelopmentSpotifyTokenStore();
@@ -249,7 +338,7 @@ public class SpotifyAuthorizationFlowTests
               "refresh_token": "refresh-token",
               "token_type": "Bearer",
               "expires_in": 3600,
-              "scope": "playlist-read-private"
+              "scope": "playlist-read-private user-read-private"
             }
             """));
     }
@@ -290,7 +379,7 @@ public class SpotifyAuthorizationFlowTests
             AccessToken = "access-token",
             RefreshToken = "refresh-token",
             ExpiresIn = 3600,
-            Scope = "playlist-read-private",
+            Scope = "playlist-read-private user-read-private",
             TokenType = "Bearer"
         });
     }
@@ -322,8 +411,10 @@ public class SpotifyAuthorizationFlowTests
             .Split('&', StringSplitOptions.RemoveEmptyEntries)
             .Select(part => part.Split('=', 2))
             .ToDictionary(
-                parts => Uri.UnescapeDataString(parts[0]),
-                parts => parts.Length > 1 ? Uri.UnescapeDataString(parts[1]) : string.Empty);
+                parts => Uri.UnescapeDataString(parts[0].Replace("+", " ", StringComparison.Ordinal)),
+                parts => parts.Length > 1
+                    ? Uri.UnescapeDataString(parts[1].Replace("+", " ", StringComparison.Ordinal))
+                    : string.Empty);
     }
 
     private sealed record TestFixture(

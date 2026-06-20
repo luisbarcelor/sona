@@ -47,7 +47,7 @@ backend restarts because the matching token record is in memory only.
 
 ### Scopes
 
-The currently implemented development playlist listing needs:
+The currently implemented development playlist listing and track loading need:
 
 ```
 playlist-read-private

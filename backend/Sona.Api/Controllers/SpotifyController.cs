@@ -186,6 +186,52 @@ public class SpotifyController(
         }
     }
 
+    [HttpGet("playlists/{playlistId}/items")]
+    public async Task<IActionResult> GetPlaylistItems(
+        [FromRoute] string playlistId,
+        [FromQuery] int limit = 50,
+        [FromQuery] int offset = 0,
+        CancellationToken cancellationToken = default)
+    {
+        if (!environment.IsDevelopment())
+        {
+            return NotFound();
+        }
+
+        try
+        {
+            var items = await accountService.GetPlaylistItemsAsync(
+                GetSessionId(),
+                playlistId,
+                limit,
+                offset,
+                cancellationToken);
+
+            return Ok(items);
+        }
+        catch (ArgumentException exception)
+        {
+            return BadRequest(new { message = exception.Message });
+        }
+        catch (SpotifyConnectionRequiredException exception)
+        {
+            return Unauthorized(new { message = exception.Message });
+        }
+        catch (SpotifyProviderException exception)
+        {
+            if (exception.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+            {
+                ClearConnection();
+            }
+
+            return StatusCode((int)exception.StatusCode, new { message = exception.Message });
+        }
+        catch (InvalidOperationException exception)
+        {
+            return Problem(exception.Message, statusCode: StatusCodes.Status500InternalServerError);
+        }
+    }
+
     private string? GetSessionId()
     {
         return Request.Cookies.TryGetValue(SessionCookieName, out var sessionId)

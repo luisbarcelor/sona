@@ -52,6 +52,32 @@ public class SpotifyAccountService(
         }
     }
 
+    public async Task<PagedResponseDto<PlaylistItemDto>> GetPlaylistItemsAsync(
+        string? sessionId,
+        string playlistId,
+        int limit,
+        int offset,
+        CancellationToken cancellationToken = default)
+    {
+        var accessToken = await GetRequiredAccessTokenAsync(sessionId, cancellationToken);
+
+        try
+        {
+            return await playlistGateway.GetPlaylistItemsAsync(
+                accessToken,
+                playlistId,
+                limit,
+                offset,
+                cancellationToken);
+        }
+        catch (SpotifyProviderException exception)
+            when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            connectionGateway.Disconnect(sessionId);
+            throw;
+        }
+    }
+
     private async Task<string> GetRequiredAccessTokenAsync(
         string? sessionId,
         CancellationToken cancellationToken)

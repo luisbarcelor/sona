@@ -78,6 +78,53 @@ public class SpotifyClient(HttpClient httpClient)
         throw await CreateExceptionAsync(response, cancellationToken);
     }
 
+    public async Task<SpotifyPagedResponse<SpotifyPlaylistItem>> GetPlaylistItemsAsync(
+        string accessToken,
+        string playlistId,
+        int limit = 50,
+        int offset = 0,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(accessToken))
+        {
+            throw new ArgumentException("Spotify access token is required.", nameof(accessToken));
+        }
+
+        if (string.IsNullOrWhiteSpace(playlistId))
+        {
+            throw new ArgumentException("Spotify playlist ID is required.", nameof(playlistId));
+        }
+
+        if (limit is < 1 or > 50)
+        {
+            throw new ArgumentOutOfRangeException(nameof(limit), limit, "Spotify playlist item limit must be between 1 and 50.");
+        }
+
+        if (offset is < 0 or > 100_000)
+        {
+            throw new ArgumentOutOfRangeException(nameof(offset), offset, "Spotify playlist item offset must be between 0 and 100000.");
+        }
+
+        var escapedPlaylistId = Uri.EscapeDataString(playlistId);
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"/v1/playlists/{escapedPlaylistId}/items?limit={limit}&offset={offset}");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+        using var response = await SendWithRetryAsync(request, cancellationToken);
+
+        if (response.IsSuccessStatusCode)
+        {
+            var items = await response.Content.ReadFromJsonAsync<SpotifyPagedResponse<SpotifyPlaylistItem>>(
+                JsonOptions,
+                cancellationToken);
+
+            return items ?? throw new SpotifyApiException(
+                HttpStatusCode.OK,
+                "Spotify returned an empty playlist item response.");
+        }
+
+        throw await CreateExceptionAsync(response, cancellationToken);
+    }
+
     private async Task<HttpResponseMessage> SendWithRetryAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         const int maxAttempts = 3;

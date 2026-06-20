@@ -84,9 +84,9 @@ DATABASE_URL=postgresql://localhost:5432/sona
 
 ## Project status
 
-In development: Spotify authentication and playlist listing are working for
-local development and covered by backend tests. Playlist track loading and the
-editor workflow are not implemented yet.
+In development: Spotify authentication and playlist loading are complete for
+local development, including current user profile, playlist listing, playlist
+selection, and playlist track loading. The editor workflow is next.
 
 ## Third-party branding
 

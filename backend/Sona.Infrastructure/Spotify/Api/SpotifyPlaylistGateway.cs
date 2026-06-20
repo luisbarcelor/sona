@@ -37,6 +37,39 @@ public class SpotifyPlaylistGateway(SpotifyClient spotifyClient) : ISpotifyPlayl
         }
     }
 
+    public async Task<PagedResponseDto<PlaylistItemDto>> GetPlaylistItemsAsync(
+        string accessToken,
+        string playlistId,
+        int limit,
+        int offset,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var response = await spotifyClient.GetPlaylistItemsAsync(
+                accessToken,
+                playlistId,
+                limit,
+                offset,
+                cancellationToken);
+
+            return new PagedResponseDto<PlaylistItemDto>
+            {
+                Href = response.Href,
+                Limit = response.Limit,
+                Next = response.Next,
+                Offset = response.Offset,
+                Previous = response.Previous,
+                Total = response.Total,
+                Items = response.Items.Select(MapPlaylistItem).ToList()
+            };
+        }
+        catch (SpotifyApiException exception)
+        {
+            throw new SpotifyProviderException(exception.StatusCode, exception.Message);
+        }
+    }
+
     private static PlaylistDto MapPlaylist(SpotifyPlaylist playlist)
     {
         return new PlaylistDto
@@ -46,7 +79,7 @@ public class SpotifyPlaylistGateway(SpotifyClient spotifyClient) : ISpotifyPlayl
             ExternalUrls = MapExternalUrls(playlist.ExternalUrls),
             Href = playlist.Href,
             Id = playlist.Id,
-            Images = playlist.Images.Select(MapImage).ToList(),
+            Images = MapImages(playlist.Images),
             Name = playlist.Name,
             Owner = new PlaylistOwnerDto
             {
@@ -79,8 +112,105 @@ public class SpotifyPlaylistGateway(SpotifyClient spotifyClient) : ISpotifyPlayl
         };
     }
 
+    private static List<ImageDto> MapImages(IEnumerable<SpotifyImage>? images)
+    {
+        return images?.Select(MapImage).ToList() ?? [];
+    }
+
     private static SpotifyExternalUrlsDto MapExternalUrls(SpotifyExternalUrls externalUrls)
     {
+        return new SpotifyExternalUrlsDto
+        {
+            Spotify = externalUrls.Spotify
+        };
+    }
+
+    private static PlaylistItemDto MapPlaylistItem(SpotifyPlaylistItem playlistItem)
+    {
+        var item = playlistItem.Item ?? playlistItem.DeprecatedTrack;
+
+        if (item is null)
+        {
+            return new PlaylistItemDto
+            {
+                AddedAt = playlistItem.AddedAt,
+                IsLocal = playlistItem.IsLocal,
+                Item = null,
+                UnsupportedReason = "Spotify did not return details for this playlist item."
+            };
+        }
+
+        if (!string.Equals(item.Type, "track", StringComparison.OrdinalIgnoreCase))
+        {
+            return new PlaylistItemDto
+            {
+                AddedAt = playlistItem.AddedAt,
+                IsLocal = playlistItem.IsLocal,
+                Item = null,
+                UnsupportedReason = "Only Spotify track items are supported in this editor."
+            };
+        }
+
+        return new PlaylistItemDto
+        {
+            AddedAt = playlistItem.AddedAt,
+            IsLocal = playlistItem.IsLocal || item.IsLocal == true,
+            Item = MapTrack(item),
+            UnsupportedReason = null
+        };
+    }
+
+    private static TrackDto MapTrack(SpotifyPlaylistItemDetails item)
+    {
+        return new TrackDto
+        {
+            Id = item.Id,
+            Uri = item.Uri,
+            Href = item.Href,
+            Name = string.IsNullOrWhiteSpace(item.Name) ? "Unavailable track" : item.Name,
+            Type = item.Type ?? "track",
+            DurationMs = item.DurationMs,
+            Explicit = item.Explicit,
+            IsPlayable = item.IsPlayable,
+            ExternalUrls = MapExternalUrls(item.ExternalUrls),
+            Album = item.Album is null ? null : MapAlbum(item.Album),
+            Artists = item.Artists.Select(MapArtist).ToList()
+        };
+    }
+
+    private static PlaylistTrackAlbumDto MapAlbum(SpotifyPlaylistAlbum album)
+    {
+        return new PlaylistTrackAlbumDto
+        {
+            Id = album.Id,
+            Uri = album.Uri,
+            Href = album.Href,
+            Name = string.IsNullOrWhiteSpace(album.Name) ? "Unknown album" : album.Name,
+            Images = MapImages(album.Images),
+            ReleaseDate = album.ReleaseDate,
+            ExternalUrls = MapExternalUrls(album.ExternalUrls)
+        };
+    }
+
+    private static PlaylistTrackArtistDto MapArtist(SpotifyPlaylistArtist artist)
+    {
+        return new PlaylistTrackArtistDto
+        {
+            Id = artist.Id,
+            Uri = artist.Uri,
+            Href = artist.Href,
+            Name = string.IsNullOrWhiteSpace(artist.Name) ? "Unknown artist" : artist.Name,
+            ExternalUrls = MapExternalUrls(artist.ExternalUrls)
+        };
+    }
+
+    private static SpotifyExternalUrlsDto? MapExternalUrls(SpotifyPlaylistItemExternalUrls? externalUrls)
+    {
+        if (string.IsNullOrWhiteSpace(externalUrls?.Spotify))
+        {
+            return null;
+        }
+
         return new SpotifyExternalUrlsDto
         {
             Spotify = externalUrls.Spotify

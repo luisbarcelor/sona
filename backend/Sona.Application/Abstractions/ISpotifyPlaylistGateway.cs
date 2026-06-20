@@ -9,4 +9,11 @@ public interface ISpotifyPlaylistGateway
         int limit,
         int offset,
         CancellationToken cancellationToken = default);
+
+    Task<PagedResponseDto<PlaylistItemDto>> GetPlaylistItemsAsync(
+        string accessToken,
+        string playlistId,
+        int limit,
+        int offset,
+        CancellationToken cancellationToken = default);
 }

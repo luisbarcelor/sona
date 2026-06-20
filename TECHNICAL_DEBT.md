@@ -3,7 +3,7 @@
 This file tracks intentional shortcuts and follow-up work that should not be
 lost while the MVP is built.
 
-## Phase 1
+## Phase 1 Carryover
 
 - Development Spotify auth is single-connection and in-memory.
 - Restarting the backend clears the Spotify connection.
@@ -21,6 +21,12 @@ lost while the MVP is built.
 - `SpotifyOptions` currently lives in Application so API composition and
   Infrastructure adapters can share one configuration object; revisit when
   production auth/session configuration is introduced.
+- Playlist loading currently returns provider-shaped response DTOs directly to
+  the frontend. Introduce editor-specific contracts when reorder/save behavior
+  needs stronger invariants.
+- Spotify image collections are normalized from `null` to empty lists at the
+  adapter boundary because real playlist responses can be looser than the
+  documented schema.
 
 ## Later Cleanup
 

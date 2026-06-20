@@ -11,7 +11,7 @@ public class SpotifyPlaylist
     public required SpotifyExternalUrls ExternalUrls { get; set; }
     public required string Href { get; set; }
     public required string Id { get; set; }
-    public required List<SpotifyImage> Images { get; set; }
+    public List<SpotifyImage>? Images { get; set; }
     public required string Name { get; set; }
     public required SpotifyOwner Owner { get; set; }
     public bool? Public { get; set; }

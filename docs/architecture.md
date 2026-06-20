@@ -74,7 +74,10 @@ backend/
 │   │   └── SpotifyConnectionService.cs
 │   ├── DTOs/
 │   │   ├── CurrentUserProfileDto.cs
-│   │   └── PlaylistDto.cs
+│   │   ├── ImageDto.cs
+│   │   ├── PagedResponseDto.cs
+│   │   ├── PlaylistDto.cs
+│   │   └── PlaylistItemDto.cs
 │   └── Configuration/
 │       └── SpotifyOptions.cs
 └── Sona.Infrastructure/
@@ -88,6 +91,10 @@ backend/
     │   │   ├── SpotifyAuthClient.cs
     │   │   └── SpotifyAuthorizationService.cs
     │   └── Models/
+    │       ├── SpotifyCurrentUser.cs
+    │       ├── SpotifyPagedResponse.cs
+    │       ├── SpotifyPlaylist.cs
+    │       └── SpotifyPlaylistItem.cs
     ├── Persistence/
     │   ├── SonaDbContext.cs
     │   └── Repositories/

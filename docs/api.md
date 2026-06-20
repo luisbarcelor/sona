@@ -94,6 +94,54 @@ cookie before returning `401` to the frontend.
 }
 ```
 
+### `GET /spotify/playlists/{playlistId}/items`
+Returns a page of playlist items for the selected Spotify playlist. The backend
+uses Spotify's `GET /playlists/{playlist_id}/items` endpoint and returns
+unsupported non-track items as visible rows instead of dropping them.
+
+If Spotify returns `401`, the backend clears the development token and session
+cookie before returning `401` to the frontend. If Spotify returns `403`, the
+backend returns `403` without clearing the session because the selected playlist
+may simply be unreadable by the connected user.
+
+**Params:**
+| Param | Type | Description |
+|---|---|---|
+| `playlistId` | string | Spotify playlist ID |
+
+**Query params:**
+| Param | Type | Description |
+|---|---|---|
+| `limit` | integer | Page size, from 1 to 50 |
+| `offset` | integer | Page offset, from 0 to 100000 |
+
+**Response:**
+```json
+{
+  "items": [
+    {
+      "added_at": "2026-06-20T09:00:00Z",
+      "is_local": false,
+      "item": {
+        "id": "4uLU6hMCjMI...",
+        "uri": "spotify:track:4uLU6hMCjMI...",
+        "name": "Track name",
+        "duration_ms": 183000,
+        "artists": [{ "name": "Artist" }],
+        "album": {
+          "name": "Album",
+          "images": [{ "url": "https://..." }]
+        }
+      },
+      "unsupported_reason": null
+    }
+  ],
+  "limit": 50,
+  "offset": 0,
+  "total": 1
+}
+```
+
 ---
 
 ## Planned API

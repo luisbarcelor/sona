@@ -6,10 +6,13 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Options;
 using Sona.Api.Controllers;
+using Sona.Application.Auth;
+using Sona.Application.Configuration;
+using Sona.Application.DTOs;
+using Sona.Application.Spotify;
 using Sona.Infrastructure.Spotify;
 using Sona.Infrastructure.Spotify.Api;
 using Sona.Infrastructure.Spotify.Authorization;
-using Sona.Infrastructure.Spotify.Configuration;
 using Sona.Infrastructure.Spotify.Models;
 
 namespace Sona.Tests;
@@ -53,7 +56,7 @@ public class SpotifyAuthorizationFlowTests
     public async Task Callback_WithValidState_SetsSessionCookieAndRedirectsToFrontend()
     {
         var fixture = CreateFixture();
-        var state = CreateValidState(fixture.AuthorizationService);
+        var state = CreateValidState(fixture.ConnectionService);
 
         var result = Assert.IsType<RedirectResult>(await fixture.Controller.Callback(
             "authorization-code",
@@ -97,7 +100,7 @@ public class SpotifyAuthorizationFlowTests
         SetCookie(fixture.HttpContext, "sona_spotify_session", sessionId);
 
         var result = Assert.IsType<OkObjectResult>(await fixture.Controller.GetCurrentUser());
-        var profile = Assert.IsType<SpotifyCurrentUser>(result.Value);
+        var profile = Assert.IsType<CurrentUserProfileDto>(result.Value);
 
         Assert.Equal("sona-tester", profile.Id);
         Assert.Equal("Sona Tester", profile.DisplayName);
@@ -212,7 +215,7 @@ public class SpotifyAuthorizationFlowTests
         SetCookie(fixture.HttpContext, "sona_spotify_session", sessionId);
 
         var result = Assert.IsType<OkObjectResult>(await fixture.Controller.GetPlaylists());
-        var playlists = Assert.IsType<SpotifyPagedResponse<SpotifyPlaylist>>(result.Value);
+        var playlists = Assert.IsType<PagedResponseDto<PlaylistDto>>(result.Value);
 
         Assert.Single(playlists.Items);
         Assert.Equal("Development Auth", playlists.Items[0].Name);
@@ -309,10 +312,15 @@ public class SpotifyAuthorizationFlowTests
         {
             BaseAddress = new Uri(options.Value.BaseUrl)
         });
+        var connectionService = new SpotifyConnectionService(authorizationService);
+        var accountService = new SpotifyAccountService(
+            authorizationService,
+            new SpotifyProfileGateway(spotifyClient),
+            new SpotifyPlaylistGateway(spotifyClient));
         var httpContext = new DefaultHttpContext();
         var controller = new SpotifyController(
-            spotifyClient,
-            authorizationService,
+            connectionService,
+            accountService,
             new TestEnvironment(),
             options)
         {
@@ -324,6 +332,7 @@ public class SpotifyAuthorizationFlowTests
 
         return new TestFixture(
             controller,
+            connectionService,
             authorizationService,
             tokenStore,
             httpContext,
@@ -366,9 +375,9 @@ public class SpotifyAuthorizationFlowTests
         };
     }
 
-    private static string CreateValidState(SpotifyAuthorizationService authorizationService)
+    private static string CreateValidState(SpotifyConnectionService connectionService)
     {
-        var authorizationUrl = authorizationService.CreateAuthorizationUrl();
+        var authorizationUrl = connectionService.CreateAuthorizationUrl();
         return ParseQuery(new Uri(authorizationUrl).Query)["state"];
     }
 
@@ -419,6 +428,7 @@ public class SpotifyAuthorizationFlowTests
 
     private sealed record TestFixture(
         SpotifyController Controller,
+        SpotifyConnectionService ConnectionService,
         SpotifyAuthorizationService AuthorizationService,
         DevelopmentSpotifyTokenStore TokenStore,
         HttpContext HttpContext,

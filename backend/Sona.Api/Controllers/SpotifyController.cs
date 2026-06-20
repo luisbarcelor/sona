@@ -1,17 +1,17 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
-using Sona.Infrastructure.Spotify;
-using Sona.Infrastructure.Spotify.Api;
-using Sona.Infrastructure.Spotify.Authorization;
-using Sona.Infrastructure.Spotify.Configuration;
+using Sona.Application.Abstractions;
+using Sona.Application.Auth;
+using Sona.Application.Configuration;
+using Sona.Application.Spotify;
 
 namespace Sona.Api.Controllers;
 
 [ApiController]
 [Route("spotify")]
 public class SpotifyController(
-    SpotifyClient spotifyClient,
-    SpotifyAuthorizationService authorizationService,
+    SpotifyConnectionService connectionService,
+    SpotifyAccountService accountService,
     IWebHostEnvironment environment,
     IOptions<SpotifyOptions> options) : ControllerBase
 {
@@ -27,7 +27,7 @@ public class SpotifyController(
 
         try
         {
-            return Redirect(authorizationService.CreateAuthorizationUrl());
+            return Redirect(connectionService.CreateAuthorizationUrl());
         }
         catch (InvalidOperationException exception)
         {
@@ -59,7 +59,7 @@ public class SpotifyController(
 
         try
         {
-            var result = await authorizationService.CompleteAuthorizationAsync(
+            var result = await connectionService.CompleteAuthorizationAsync(
                 code,
                 state,
                 cancellationToken);
@@ -68,7 +68,7 @@ public class SpotifyController(
 
             return RedirectToFrontend();
         }
-        catch (SpotifyApiException exception)
+        catch (SpotifyProviderException exception)
         {
             return RedirectToFrontend(exception.Message);
         }
@@ -92,7 +92,7 @@ public class SpotifyController(
 
         return Ok(new
         {
-            connected = authorizationService.IsConnected(GetSessionId())
+            connected = connectionService.IsConnected(GetSessionId())
         });
     }
 
@@ -119,21 +119,15 @@ public class SpotifyController(
 
         try
         {
-            var accessToken = await authorizationService.GetAccessTokenAsync(GetSessionId(), cancellationToken);
-
-            if (accessToken is null)
-            {
-                return Unauthorized(new
-                {
-                    message = "Spotify is not connected. Open GET /spotify/connect first."
-                });
-            }
-
-            var user = await spotifyClient.GetCurrentUserProfileAsync(accessToken, cancellationToken);
+            var user = await accountService.GetCurrentUserProfileAsync(GetSessionId(), cancellationToken);
 
             return Ok(user);
         }
-        catch (SpotifyApiException exception)
+        catch (SpotifyConnectionRequiredException exception)
+        {
+            return Unauthorized(new { message = exception.Message });
+        }
+        catch (SpotifyProviderException exception)
         {
             if (exception.StatusCode is System.Net.HttpStatusCode.Unauthorized or System.Net.HttpStatusCode.Forbidden)
             {
@@ -161,18 +155,8 @@ public class SpotifyController(
 
         try
         {
-            var accessToken = await authorizationService.GetAccessTokenAsync(GetSessionId(), cancellationToken);
-
-            if (accessToken is null)
-            {
-                return Unauthorized(new
-                {
-                    message = "Spotify is not connected. Open GET /spotify/connect first."
-                });
-            }
-
-            var playlists = await spotifyClient.GetCurrentUserPlaylistsAsync(
-                accessToken,
+            var playlists = await accountService.GetCurrentUserPlaylistsAsync(
+                GetSessionId(),
                 limit,
                 offset,
                 cancellationToken);
@@ -183,7 +167,11 @@ public class SpotifyController(
         {
             return BadRequest(new { message = exception.Message });
         }
-        catch (SpotifyApiException exception)
+        catch (SpotifyConnectionRequiredException exception)
+        {
+            return Unauthorized(new { message = exception.Message });
+        }
+        catch (SpotifyProviderException exception)
         {
             if (exception.StatusCode == System.Net.HttpStatusCode.Unauthorized)
             {
@@ -218,7 +206,7 @@ public class SpotifyController(
 
     private void ClearConnection()
     {
-        authorizationService.Disconnect(GetSessionId());
+        connectionService.Disconnect(GetSessionId());
         Response.Cookies.Delete(SessionCookieName, CreateSessionCookieOptions());
     }
 

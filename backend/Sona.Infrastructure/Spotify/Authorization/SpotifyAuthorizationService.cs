@@ -1,6 +1,8 @@
 using System.Net;
 using Microsoft.Extensions.Options;
-using Sona.Infrastructure.Spotify.Configuration;
+using Sona.Application.Abstractions;
+using Sona.Application.Auth;
+using Sona.Application.Configuration;
 using Sona.Infrastructure.Spotify.Models;
 
 namespace Sona.Infrastructure.Spotify.Authorization;
@@ -8,7 +10,7 @@ namespace Sona.Infrastructure.Spotify.Authorization;
 public class SpotifyAuthorizationService(
     SpotifyAuthClient authClient,
     DevelopmentSpotifyTokenStore tokenStore,
-    IOptions<SpotifyOptions> options)
+    IOptions<SpotifyOptions> options) : ISpotifyConnectionGateway
 {
     public string CreateAuthorizationUrl()
     {
@@ -30,7 +32,7 @@ public class SpotifyAuthorizationService(
         return $"{options.Value.AccountsBaseUrl.TrimEnd('/')}/authorize?{query}";
     }
 
-    public async Task<SpotifyAuthorizationResult> CompleteAuthorizationAsync(
+    public async Task<SpotifyConnectionResult> CompleteAuthorizationAsync(
         string code,
         string state,
         CancellationToken cancellationToken = default)
@@ -41,15 +43,24 @@ public class SpotifyAuthorizationService(
         }
 
         var (clientId, clientSecret) = GetCredentials();
-        var token = await authClient.ExchangeCodeForTokenAsync(
-            clientId,
-            clientSecret,
-            code,
-            options.Value.RedirectUri,
-            cancellationToken);
+        SpotifyTokenResponse token;
+
+        try
+        {
+            token = await authClient.ExchangeCodeForTokenAsync(
+                clientId,
+                clientSecret,
+                code,
+                options.Value.RedirectUri,
+                cancellationToken);
+        }
+        catch (SpotifyApiException exception)
+        {
+            throw new SpotifyProviderException(exception.StatusCode, exception.Message);
+        }
 
         var sessionId = tokenStore.SaveAuthorization(token);
-        return new SpotifyAuthorizationResult(token, sessionId);
+        return new SpotifyConnectionResult(sessionId);
     }
 
     public async Task<string?> GetAccessTokenAsync(
@@ -70,17 +81,26 @@ public class SpotifyAuthorizationService(
 
         if (string.IsNullOrWhiteSpace(storedToken.RefreshToken))
         {
-            throw new SpotifyApiException(
+            throw new SpotifyProviderException(
                 HttpStatusCode.Unauthorized,
                 "Spotify session expired. Connect Spotify again.");
         }
 
         var (clientId, clientSecret) = GetCredentials();
-        var refreshedToken = await authClient.RefreshAccessTokenAsync(
-            clientId,
-            clientSecret,
-            storedToken.RefreshToken,
-            cancellationToken);
+        SpotifyTokenResponse refreshedToken;
+
+        try
+        {
+            refreshedToken = await authClient.RefreshAccessTokenAsync(
+                clientId,
+                clientSecret,
+                storedToken.RefreshToken,
+                cancellationToken);
+        }
+        catch (SpotifyApiException exception)
+        {
+            throw new SpotifyProviderException(exception.StatusCode, exception.Message);
+        }
 
         tokenStore.SaveRefresh(refreshedToken, storedToken.SessionId);
         return refreshedToken.AccessToken;
@@ -110,5 +130,3 @@ public class SpotifyAuthorizationService(
         return (clientId, clientSecret);
     }
 }
-
-public record SpotifyAuthorizationResult(SpotifyTokenResponse Token, string SessionId);

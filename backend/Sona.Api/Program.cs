@@ -1,8 +1,11 @@
 using Microsoft.Extensions.Options;
 using Scalar.AspNetCore;
+using Sona.Application.Abstractions;
+using Sona.Application.Auth;
+using Sona.Application.Configuration;
+using Sona.Application.Spotify;
 using Sona.Infrastructure.Spotify.Api;
 using Sona.Infrastructure.Spotify.Authorization;
-using Sona.Infrastructure.Spotify.Configuration;
 
 namespace Sona.Api;
 
@@ -40,9 +43,13 @@ internal static class Program
                 "Spotify options are missing required values.")
             .ValidateOnStart();
 
-        services.AddSingleton<DevelopmentSpotifyTokenStore>();
-        services.AddScoped<SpotifyAuthorizationService>();
+        services.AddScoped<SpotifyConnectionService>();
+        services.AddScoped<SpotifyAccountService>();
 
+        services.AddSingleton<DevelopmentSpotifyTokenStore>();
+        services.AddScoped<ISpotifyConnectionGateway, SpotifyAuthorizationService>();
+        services.AddScoped<ISpotifyProfileGateway, SpotifyProfileGateway>();
+        services.AddScoped<ISpotifyPlaylistGateway, SpotifyPlaylistGateway>();
         services.AddHttpClient<SpotifyClient>((sp, client) =>
         {
             var spotify = sp.GetRequiredService<IOptions<SpotifyOptions>>().Value;

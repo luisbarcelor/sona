@@ -437,7 +437,7 @@ Preferred flow:
 
 ```text
 Controller
-→ Application use case
+→ Application feature service
 → Spotify provider/client abstraction
 → Infrastructure Spotify client
 ```

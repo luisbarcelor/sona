@@ -16,7 +16,7 @@
                                      ▼
                          ┌───────────────────────┐
                          │  Sona.Application     │
-                         │  use cases + ports    │
+                         │feature services+ports│
                          └───────────┬───────────┘
                                      │
                                      ▼
@@ -33,11 +33,13 @@ Spotify Web API, optional analysis providers, PostgreSQL, and encrypted token st
 
 ## Backend
 
-The structure below is the target MVP architecture. The current development
-authentication implementation is smaller: `SpotifyController` calls the Spotify
-infrastructure services directly for auth and playlist listing. Application
-use cases and domain ordering rules will be introduced as playlist loading,
-editing, and save behavior are built.
+The backend now follows the Clean Architecture dependency rule. Controllers
+depend on Application feature services, Application defines ports and DTOs,
+and Infrastructure implements those ports for Spotify.
+
+`Sona.Api` is still the composition root, so it references Infrastructure only
+to register adapters. DDD-style domain behavior is intentionally deferred until
+playlist ordering rules exist.
 
 ### Folder structure
 
@@ -46,8 +48,7 @@ backend/
 ├── Sona.slnx
 ├── Sona.Api/
 │   ├── Controllers/
-│   │   ├── AuthController.cs
-│   │   └── PlaylistController.cs
+│   │   └── SpotifyController.cs
 │   ├── Middleware/
 │   ├── Program.cs
 │   └── appsettings.json
@@ -64,28 +65,29 @@ backend/
 │   └── Exceptions/
 ├── Sona.Application/
 │   ├── Abstractions/
-│   │   ├── ITrackAnalysisProvider.cs
-│   │   ├── IPlaylistGateway.cs
-│   │   ├── ISessionRepository.cs
-│   │   └── IUnitOfWork.cs
-│   ├── Playlists/
-│   │   ├── GetPlaylists/
-│   │   ├── GetPlaylistDetails/
-│   │   └── ReorderPlaylist/
+│   │   ├── ISpotifyConnectionGateway.cs
+│   │   ├── ISpotifyPlaylistGateway.cs
+│   │   └── ISpotifyProfileGateway.cs
+│   ├── Spotify/
+│   │   └── SpotifyAccountService.cs
 │   ├── Auth/
-│   │   ├── StartLogin/
-│   │   ├── CompleteLogin/
-│   │   └── Logout/
-│   └── DTOs/
-│       ├── PlaylistDto.cs
-│       ├── TrackDto.cs
-│       └── TrackAnalysisDto.cs
+│   │   └── SpotifyConnectionService.cs
+│   ├── DTOs/
+│   │   ├── CurrentUserProfileDto.cs
+│   │   └── PlaylistDto.cs
+│   └── Configuration/
+│       └── SpotifyOptions.cs
 └── Sona.Infrastructure/
-    ├── TrackAnalysis/
-    │   └── NullAnalysisProvider.cs
     ├── Spotify/
-    │   ├── SpotifyAuthClient.cs
-    │   └── SpotifyPlaylistGateway.cs
+    │   ├── Api/
+    │   │   ├── SpotifyClient.cs
+    │   │   ├── SpotifyPlaylistGateway.cs
+    │   │   └── SpotifyProfileGateway.cs
+    │   ├── Authorization/
+    │   │   ├── DevelopmentSpotifyTokenStore.cs
+    │   │   ├── SpotifyAuthClient.cs
+    │   │   └── SpotifyAuthorizationService.cs
+    │   └── Models/
     ├── Persistence/
     │   ├── SonaDbContext.cs
     │   └── Repositories/
@@ -97,7 +99,7 @@ backend/
 | Layer | Responsibility |
 |---|---|
 | `Sona.Domain` | Core entities, value objects, invariants, ordering rules |
-| `Sona.Application` | Use cases, ports, DTOs, transaction boundaries |
+| `Sona.Application` | Feature-focused services, ports, DTOs, orchestration |
 | `Sona.Infrastructure` | Spotify clients, optional analysis providers, EF Core, repositories |
 | `Sona.Api` | Controllers, session middleware, HTTP configuration, dependency wiring |
 
@@ -105,7 +107,7 @@ backend/
 
 ```
 Sona.Api → Sona.Application
-Sona.Api → Sona.Infrastructure
+Sona.Api → Sona.Infrastructure (composition root only)
 Sona.Infrastructure → Sona.Application
 Sona.Infrastructure → Sona.Domain
 Sona.Application → Sona.Domain
@@ -122,23 +124,22 @@ The domain layer owns behavior that should stay valid regardless of the UI or ex
 - Compatibility signals handle missing analysis explicitly and are optional.
 - Provider identities are represented without making the domain a copy of Spotify response models.
 
-### Application use cases
+### Application Feature Services
 
-Application handlers orchestrate work without embedding infrastructure details:
+The app is still young, so Application uses feature-focused services instead of
+per-action use-case classes. These services orchestrate work without embedding
+Infrastructure details:
 
 ```
-StartSpotifyLogin
-CompleteSpotifyLogin
-GetCurrentUserPlaylists
-GetPlaylistForEditing
-PreviewPlaylistReorder
-SavePlaylistReorder
+SpotifyConnectionService
+SpotifyAccountService
 ```
 
-Each use case depends on abstractions such as `IPlaylistGateway`,
-`ITrackAnalysisProvider`, and `ISessionRepository`. A
-`NullAnalysisProvider` keeps the ordering workflow functional without
-analysis data.
+Feature services depend on Application ports such as
+`ISpotifyConnectionGateway`, `ISpotifyProfileGateway`, and
+`ISpotifyPlaylistGateway`. Infrastructure implements those ports with Spotify
+adapters. A `NullAnalysisProvider` can be added later when optional analysis is
+introduced.
 
 ---
 

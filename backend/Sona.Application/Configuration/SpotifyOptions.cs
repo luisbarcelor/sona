@@ -1,4 +1,4 @@
-namespace Sona.Infrastructure.Spotify.Configuration;
+namespace Sona.Application.Configuration;
 
 public class SpotifyOptions
 {

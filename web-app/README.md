@@ -23,8 +23,8 @@ are managed by the backend and must not be stored in the browser.
 Run the backend first, then start the Vite development server:
 
 ```bash
-npm install
-npm run dev
+pnpm install
+pnpm dev
 ```
 
 In development, Vite listens on `http://127.0.0.1:5173` and proxies
@@ -36,6 +36,16 @@ constraints.
 ## Checks
 
 ```bash
-npm run lint
-npm run build
+pnpm check
 ```
+
+## Frontend Technical Debt
+
+- Phase 2 should introduce a dedicated editor state model for original order,
+  current order, and dirty/reset behavior once drag and drop is added.
+- Track row identity still follows the current backend DTO shape. Before save
+  work, confirm unsupported/local/unavailable items have stable identities so
+  the editor never silently drops them.
+- UI state is intentionally local React state for now. If editor interactions
+  become hard to reason about, move only the editor session state into a small
+  store rather than lifting all API state globally.

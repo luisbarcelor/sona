@@ -1,8 +1,23 @@
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
 import { buttonBase, sectionLabel } from '../lib/styles'
 import type {
   SpotifyPlaylist,
   SpotifyPlaylistItemPage,
 } from '../types/spotify'
+import { usePlaylistEditor } from '../hooks/use-playlist-editor'
 import { NoticePanel } from './notice-panel'
 import { PaginationControls } from './pagination-controls'
 import { TrackRow } from './track-row'
@@ -33,6 +48,24 @@ export function TrackPanel({
   pagination,
   playlist,
 }: TrackPanelProps) {
+  const editor = usePlaylistEditor(page)
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  )
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event
+
+    if (!over) {
+      return
+    }
+
+    editor.moveRow(String(active.id), String(over.id))
+  }
+
   return (
     <section className="mt-8 border-t border-[#243029] pt-7" aria-label="Canciones de la playlist seleccionada">
       <div className="mb-5 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-end">
@@ -47,10 +80,32 @@ export function TrackPanel({
             </p>
           )}
         </div>
-        <button className={buttonBase} type="button" onClick={onRefresh} disabled={isLoading}>
+        <button
+          className={buttonBase}
+          type="button"
+          onClick={onRefresh}
+          disabled={isLoading || editor.hasUnsavedChanges}
+        >
           {isLoading ? 'Cargando...' : 'Actualizar canciones'}
         </button>
       </div>
+
+      {editor.hasUnsavedChanges && (
+        <NoticePanel
+          tone="success"
+          title="Cambios sin guardar"
+          action={
+            <button className={buttonBase} type="button" onClick={editor.resetChanges}>
+              Revertir cambios
+            </button>
+          }
+        >
+          <p className="m-0">
+            Has cambiado el orden de esta página de canciones. La playlist no se guardará en Spotify
+            todavía. Revierte los cambios antes de actualizar o cambiar de página.
+          </p>
+        </NoticePanel>
+      )}
 
       {error && (
         <NoticePanel
@@ -80,18 +135,31 @@ export function TrackPanel({
 
       {page && page.items.length > 0 && (
         <>
-          <ol className="grid list-none gap-2 p-0">
-            {page.items.map((playlistItem, index) => (
-              <TrackRow
-                item={playlistItem}
-                key={`${playlistItem.item?.uri ?? 'unsupported'}-${index}`}
-                position={page.offset + index + 1}
-              />
-            ))}
-          </ol>
+          <DndContext
+            collisionDetection={closestCenter}
+            sensors={sensors}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={editor.currentRows.map((row) => row.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <ol className="grid list-none gap-2 p-0">
+                {editor.currentRows.map((row, index) => (
+                  <TrackRow
+                    id={row.id}
+                    item={row.item}
+                    key={row.id}
+                    originalPosition={row.originalPosition}
+                    position={page.offset + index + 1}
+                  />
+                ))}
+              </ol>
+            </SortableContext>
+          </DndContext>
           <PaginationControls
-            canGoBack={pagination.canGoBack}
-            canGoForward={pagination.canGoForward}
+            canGoBack={pagination.canGoBack && !editor.hasUnsavedChanges}
+            canGoForward={pagination.canGoForward && !editor.hasUnsavedChanges}
             label="Paginación de canciones"
             onNext={onNextPage}
             onPrevious={onPreviousPage}

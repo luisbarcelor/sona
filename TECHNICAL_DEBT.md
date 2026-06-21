@@ -28,6 +28,27 @@ lost while the MVP is built.
   adapter boundary because real playlist responses can be looser than the
   documented schema.
 
+## Phase 2 Carryover
+
+- Playlist editor state is currently scoped to the loaded track page. Before
+  save/reorder work, promote the editor to full-playlist state so dirty
+  detection, reset, preview, and save operate on the complete playlist order.
+- Track row identity is generated in the frontend from original position plus
+  available Spotify item data. Before save/reorder work, introduce an explicit
+  editor row contract that represents a specific playlist row occurrence,
+  including duplicate tracks, local tracks, unsupported items, and unavailable
+  items.
+- The current editor disables track refresh and track pagination while the
+  loaded page has unsaved local order changes, but selecting a different
+  playlist can still discard local edits. Add a navigation/switch guard before
+  the editor becomes full-playlist editing.
+- Drag and drop uses `dnd-kit` without frontend automated tests yet. Add
+  Vitest coverage for editor state after Phase 2 stabilizes, and defer
+  Playwright E2E coverage until the full MVP workflow includes preview/save.
+- Save is intentionally not implemented yet. Spotify reorder uses move
+  operations with snapshot IDs, not a full-order replacement API, so Phase 4
+  needs a dedicated reorder-plan algorithm and backend validation.
+
 ## Later Cleanup
 
 - Replace the development token store with encrypted per-user persistence.

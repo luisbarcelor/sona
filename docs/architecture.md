@@ -158,36 +158,48 @@ introduced.
 web-app/
 ├── src/
 │   ├── api/
-│   │   ├── auth.ts
-│   │   └── playlists.ts
+│   │   └── spotify-api.ts
 │   ├── components/
-│   │   ├── PlaylistCard/
-│   │   ├── TrackRow/
-│   │   ├── LockToggle/
-│   │   └── ChangePreview/
-│   ├── pages/
-│   │   ├── Home.tsx
-│   │   ├── Playlists.tsx
-│   │   └── Editor.tsx
-│   ├── store/
-│   │   └── playlistStore.ts
+│   │   ├── account-chip.tsx
+│   │   ├── app-header.tsx
+│   │   ├── playlist-library.tsx
+│   │   ├── track-panel.tsx
+│   │   └── track-row.tsx
+│   ├── hooks/
+│   │   ├── spotify-auth-state.ts
+│   │   ├── use-playlist-editor.ts
+│   │   └── use-spotify-library.ts
+│   ├── lib/
+│   │   ├── format-duration.ts
+│   │   └── styles.ts
 │   ├── types/
 │   │   └── spotify.ts
+│   ├── app.tsx
 │   └── main.tsx
 ├── index.html
-├── vite.config.ts
-└── tailwind.config.ts
+├── package.json
+└── vite.config.ts
 ```
 
 ### Application state
 
 ```
-TanStack Query (server)             Zustand (local)
+React hooks                         Transient editor state
 ─────────────────────────           ───────────────────────
-user playlists                      current track order
-playlist items                      locked positions
-optional analysis signals           loaded snapshot ID
+useSpotifyLibrary                   connected profile
+                                    playlist pages
+                                    selected playlist
+                                    loaded track page
+
+usePlaylistEditor                   original page order
+                                    current page order
+                                    dirty/reset state
 ```
+
+The current frontend intentionally keeps state local while the MVP surface is
+small. `usePlaylistEditor` is page-scoped for editor foundation work. Before
+save, this should become full-playlist editor state with explicit row identity
+and snapshot-aware save preparation.
 
 ---
 

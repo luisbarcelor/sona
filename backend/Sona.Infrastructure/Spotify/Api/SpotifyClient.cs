@@ -78,6 +78,41 @@ public class SpotifyClient(HttpClient httpClient)
         throw await CreateExceptionAsync(response, cancellationToken);
     }
 
+    public async Task<SpotifyPlaylist> GetPlaylistAsync(
+        string accessToken,
+        string playlistId,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(accessToken))
+        {
+            throw new ArgumentException("Spotify access token is required.", nameof(accessToken));
+        }
+
+        if (string.IsNullOrWhiteSpace(playlistId))
+        {
+            throw new ArgumentException("Spotify playlist ID is required.", nameof(playlistId));
+        }
+
+        var escapedPlaylistId = Uri.EscapeDataString(playlistId);
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"/v1/playlists/{escapedPlaylistId}");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+        using var response = await SendWithRetryAsync(request, cancellationToken);
+
+        if (response.IsSuccessStatusCode)
+        {
+            var playlist = await response.Content.ReadFromJsonAsync<SpotifyPlaylist>(
+                JsonOptions,
+                cancellationToken);
+
+            return playlist ?? throw new SpotifyApiException(
+                HttpStatusCode.OK,
+                "Spotify returned an empty playlist response.");
+        }
+
+        throw await CreateExceptionAsync(response, cancellationToken);
+    }
+
     public async Task<SpotifyPagedResponse<SpotifyPlaylistItem>> GetPlaylistItemsAsync(
         string accessToken,
         string playlistId,

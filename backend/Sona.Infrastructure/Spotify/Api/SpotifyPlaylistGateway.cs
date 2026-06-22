@@ -70,6 +70,26 @@ public class SpotifyPlaylistGateway(SpotifyClient spotifyClient) : ISpotifyPlayl
         }
     }
 
+    public async Task<PlaylistDto> GetPlaylistAsync(
+        string accessToken,
+        string playlistId,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var playlist = await spotifyClient.GetPlaylistAsync(
+                accessToken,
+                playlistId,
+                cancellationToken);
+
+            return MapPlaylist(playlist);
+        }
+        catch (SpotifyApiException exception)
+        {
+            throw new SpotifyProviderException(exception.StatusCode, exception.Message);
+        }
+    }
+
     private static PlaylistDto MapPlaylist(SpotifyPlaylist playlist)
     {
         return new PlaylistDto

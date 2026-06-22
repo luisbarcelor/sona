@@ -232,6 +232,48 @@ public class SpotifyController(
         }
     }
 
+    [HttpGet("playlists/{playlistId}/editor")]
+    public async Task<IActionResult> GetPlaylistEditor(
+        [FromRoute] string playlistId,
+        CancellationToken cancellationToken = default)
+    {
+        if (!environment.IsDevelopment())
+        {
+            return NotFound();
+        }
+
+        try
+        {
+            var editor = await accountService.GetPlaylistEditorAsync(
+                GetSessionId(),
+                playlistId,
+                cancellationToken);
+
+            return Ok(editor);
+        }
+        catch (ArgumentException exception)
+        {
+            return BadRequest(new { message = exception.Message });
+        }
+        catch (SpotifyConnectionRequiredException exception)
+        {
+            return Unauthorized(new { message = exception.Message });
+        }
+        catch (SpotifyProviderException exception)
+        {
+            if (exception.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+            {
+                ClearConnection();
+            }
+
+            return StatusCode((int)exception.StatusCode, new { message = exception.Message });
+        }
+        catch (InvalidOperationException exception)
+        {
+            return Problem(exception.Message, statusCode: StatusCodes.Status500InternalServerError);
+        }
+    }
+
     private string? GetSessionId()
     {
         return Request.Cookies.TryGetValue(SessionCookieName, out var sessionId)

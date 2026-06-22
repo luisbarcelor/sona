@@ -665,13 +665,18 @@ playlist track loading are in place and covered by backend tests.
 - Detect unsaved changes.
 - Reset changes.
 
-Phase 2 implementation checkpoint: partially complete for local development.
-The frontend now has a component-based track editor foundation with `dnd-kit`
-drag-and-drop, page-scoped original/current order state, unsaved-change
-detection, moved-row indication, and reset for the currently loaded track page.
-The remaining Phase 2 decision is to promote editor state from page-scoped
-editing to full-playlist editing before preview/save work, because Spotify save
-requires the complete playlist order.
+Phase 2 implementation checkpoint: functionally complete but test-incomplete
+for local development. The backend now exposes a dedicated editor endpoint that
+loads the full playlist item set from Spotify's paged item API, and the
+frontend editor owns full-playlist original/current row state while rendering
+page-sized slices. The editor supports `dnd-kit` drag-and-drop within the
+visible page, unsaved-change detection, moved-row indication, reset,
+save-preparation metadata, and guards for user actions that would discard local
+ordering changes.
+
+Phase 2 should remain open until focused frontend tests cover editor state and
+dirty-guard behavior. Remaining follow-ups before save are tracked in
+[Technical Debt](../TECHNICAL_DEBT.md).
 
 ### Phase 3: Locks and Sorting
 

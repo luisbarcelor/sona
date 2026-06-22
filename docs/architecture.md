@@ -189,17 +189,19 @@ React hooks                         Transient editor state
 useSpotifyLibrary                   connected profile
                                     playlist pages
                                     selected playlist
-                                    loaded track page
+                                    loaded editor payload
+                                    track view page offset
 
-usePlaylistEditor                   original page order
-                                    current page order
-                                    dirty/reset state
+usePlaylistEditor                   original full-playlist order
+                                    current full-playlist order
+                                    moved/unsupported rows
+                                    dirty/reset/save-prep state
 ```
 
 The current frontend intentionally keeps state local while the MVP surface is
-small. `usePlaylistEditor` is page-scoped for editor foundation work. Before
-save, this should become full-playlist editor state with explicit row identity
-and snapshot-aware save preparation.
+small. `usePlaylistEditor` owns full-playlist editor state and `TrackPanel`
+renders page-sized slices. Before save, authoritative row occurrence identity
+and save-preparation fields should move into the backend editor payload.
 
 ---
 

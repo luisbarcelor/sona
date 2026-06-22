@@ -142,6 +142,49 @@ may simply be unreadable by the connected user.
 }
 ```
 
+### `GET /spotify/playlists/{playlistId}/editor`
+Returns the current development editor payload for the selected playlist. The
+backend loads playlist metadata for the snapshot ID, fetches all playlist item
+pages from Spotify, and returns one full item set for the frontend editor to
+own as transient state.
+
+If any Spotify item page fails, the editor payload is not returned. If the
+assembled item count does not match Spotify's reported total, the backend
+returns a problem response instead of allowing a partial playlist to become
+editable.
+
+**Params:**
+| Param | Type | Description |
+|---|---|---|
+| `playlistId` | string | Spotify playlist ID |
+
+**Response:**
+```json
+{
+  "playlist_id": "37i9dQZF1DX...",
+  "snapshot_id": "abc123",
+  "total": 2,
+  "items": [
+    {
+      "added_at": "2026-06-20T09:00:00Z",
+      "is_local": false,
+      "item": {
+        "id": "4uLU6hMCjMI...",
+        "uri": "spotify:track:4uLU6hMCjMI...",
+        "name": "Track name",
+        "duration_ms": 183000,
+        "artists": [{ "name": "Artist" }],
+        "album": {
+          "name": "Album",
+          "images": [{ "url": "https://..." }]
+        }
+      },
+      "unsupported_reason": null
+    }
+  ]
+}
+```
+
 ---
 
 ## Planned API

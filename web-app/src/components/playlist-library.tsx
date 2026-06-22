@@ -21,6 +21,7 @@ export function PlaylistLibrary({ actions, state }: PlaylistLibraryProps) {
     page,
     pagination,
     selectedPlaylist,
+    trackEditor,
     trackError,
     trackPage,
     trackPagination,
@@ -132,7 +133,7 @@ export function PlaylistLibrary({ actions, state }: PlaylistLibraryProps) {
                 isSelected={selectedPlaylist?.id === playlist.id}
                 key={playlist.id}
                 playlist={playlist}
-                onSelect={(selected) => void actions.requestPlaylistItems(selected, 0)}
+                onSelect={(selected) => void actions.requestPlaylistItems(selected)}
               />
             ))}
           </div>
@@ -148,25 +149,20 @@ export function PlaylistLibrary({ actions, state }: PlaylistLibraryProps) {
 
           {selectedPlaylist && (
             <TrackPanel
+              editor={trackEditor}
               error={trackError}
               isLoading={isTracksLoading}
               page={trackPage}
               pagination={trackPagination}
               playlist={selectedPlaylist}
               onNextPage={() =>
-                void actions.requestPlaylistItems(
-                  selectedPlaylist,
-                  trackPagination.offset + TRACK_PAGE_SIZE,
-                )
+                actions.setTrackOffset(trackPagination.offset + TRACK_PAGE_SIZE)
               }
               onPreviousPage={() =>
-                void actions.requestPlaylistItems(
-                  selectedPlaylist,
-                  Math.max(0, trackPagination.offset - TRACK_PAGE_SIZE),
-                )
+                actions.setTrackOffset(Math.max(0, trackPagination.offset - TRACK_PAGE_SIZE))
               }
               onRefresh={() =>
-                void actions.requestPlaylistItems(selectedPlaylist, trackPagination.offset)
+                void actions.requestPlaylistItems(selectedPlaylist)
               }
             />
           )}

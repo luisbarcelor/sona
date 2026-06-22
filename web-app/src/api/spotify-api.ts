@@ -1,4 +1,5 @@
 import type {
+  SpotifyPlaylistEditor,
   SpotifyPlaylistItemPage,
   SpotifyPlaylistPage,
   SpotifyUserProfile,
@@ -51,16 +52,15 @@ export async function fetchCurrentUser(signal?: AbortSignal) {
   return body as SpotifyUserProfile
 }
 
-export async function fetchPlaylistItems(
+export async function fetchPlaylistEditor(
   playlistId: string,
-  requestedOffset: number,
   signal?: AbortSignal,
 ) {
   const response = await fetch(
-    `/spotify/playlists/${encodeURIComponent(playlistId)}/items?limit=${TRACK_PAGE_SIZE}&offset=${requestedOffset}`,
+    `/spotify/playlists/${encodeURIComponent(playlistId)}/editor`,
     { signal },
   )
-  const body = (await response.json().catch(() => null)) as SpotifyPlaylistItemPage | ApiError | null
+  const body = (await response.json().catch(() => null)) as SpotifyPlaylistEditor | ApiError | null
 
   if (!response.ok) {
     throw new ApiRequestError(
@@ -69,7 +69,7 @@ export async function fetchPlaylistItems(
     )
   }
 
-  return body as SpotifyPlaylistItemPage
+  return body as SpotifyPlaylistEditor
 }
 
 export async function deleteSpotifyConnection() {
@@ -80,6 +80,9 @@ export async function deleteSpotifyConnection() {
   }
 }
 
-function readApiMessage(body: SpotifyPlaylistPage | SpotifyPlaylistItemPage | SpotifyUserProfile | ApiError | null, fallback: string) {
+function readApiMessage(
+  body: SpotifyPlaylistEditor | SpotifyPlaylistPage | SpotifyPlaylistItemPage | SpotifyUserProfile | ApiError | null,
+  fallback: string,
+) {
   return body && 'message' in body && body.message ? body.message : fallback
 }

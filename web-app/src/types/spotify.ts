@@ -16,6 +16,7 @@ export type SpotifyPlaylist = {
   external_urls: {
     spotify: string
   } | null
+  snapshot_id: string
 }
 
 export type SpotifyPlaylistPage = {
@@ -57,6 +58,13 @@ export type SpotifyPlaylistItemPage = {
   items: SpotifyPlaylistItem[]
   limit: number
   offset: number
+  total: number
+}
+
+export type SpotifyPlaylistEditor = {
+  playlist_id: string
+  snapshot_id: string
+  items: SpotifyPlaylistItem[]
   total: number
 }
 

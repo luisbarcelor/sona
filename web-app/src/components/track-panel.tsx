@@ -15,30 +15,33 @@ import {
 import { buttonBase, sectionLabel } from '../lib/styles'
 import type {
   SpotifyPlaylist,
-  SpotifyPlaylistItemPage,
+  SpotifyPlaylistEditor,
 } from '../types/spotify'
-import { usePlaylistEditor } from '../hooks/use-playlist-editor'
+import type { PlaylistEditorState } from '../hooks/use-playlist-editor'
 import { NoticePanel } from './notice-panel'
 import { PaginationControls } from './pagination-controls'
 import { TrackRow } from './track-row'
 
 type TrackPanelProps = {
+  editor: PlaylistEditorState
   error: string | null
   isLoading: boolean
   onNextPage: () => void
   onPreviousPage: () => void
   onRefresh: () => void
-  page: SpotifyPlaylistItemPage | null
+  page: SpotifyPlaylistEditor | null
   pagination: {
     canGoBack: boolean
     canGoForward: boolean
     endItem: number
+    offset: number
     startItem: number
   }
   playlist: SpotifyPlaylist
 }
 
 export function TrackPanel({
+  editor,
   error,
   isLoading,
   onNextPage,
@@ -48,7 +51,6 @@ export function TrackPanel({
   pagination,
   playlist,
 }: TrackPanelProps) {
-  const editor = usePlaylistEditor(page)
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
@@ -65,6 +67,7 @@ export function TrackPanel({
 
     editor.moveRow(String(active.id), String(over.id))
   }
+  const visibleRows = editor.currentRows.slice(pagination.startItem - 1, pagination.endItem)
 
   return (
     <section className="mt-8 border-t border-[#243029] pt-7" aria-label="Canciones de la playlist seleccionada">
@@ -101,8 +104,8 @@ export function TrackPanel({
           }
         >
           <p className="m-0">
-            Has cambiado el orden de esta página de canciones. La playlist no se guardará en Spotify
-            todavía. Revierte los cambios antes de actualizar o cambiar de página.
+            Has cambiado el orden de esta playlist. La playlist no se guardará en Spotify todavía.
+            Revierte los cambios antes de actualizar o seleccionar otra playlist.
           </p>
         </NoticePanel>
       )}
@@ -141,25 +144,25 @@ export function TrackPanel({
             onDragEnd={handleDragEnd}
           >
             <SortableContext
-              items={editor.currentRows.map((row) => row.id)}
+              items={visibleRows.map((row) => row.id)}
               strategy={verticalListSortingStrategy}
             >
               <ol className="grid list-none gap-2 p-0">
-                {editor.currentRows.map((row, index) => (
+                {visibleRows.map((row, index) => (
                   <TrackRow
                     id={row.id}
                     item={row.item}
                     key={row.id}
                     originalPosition={row.originalPosition}
-                    position={page.offset + index + 1}
+                    position={pagination.offset + index + 1}
                   />
                 ))}
               </ol>
             </SortableContext>
           </DndContext>
           <PaginationControls
-            canGoBack={pagination.canGoBack && !editor.hasUnsavedChanges}
-            canGoForward={pagination.canGoForward && !editor.hasUnsavedChanges}
+            canGoBack={pagination.canGoBack}
+            canGoForward={pagination.canGoForward}
             label="Paginación de canciones"
             onNext={onNextPage}
             onPrevious={onPreviousPage}

@@ -4,7 +4,7 @@ import {
   TRACK_PAGE_SIZE,
   deleteSpotifyConnection,
   fetchCurrentUser,
-  fetchPlaylistItems,
+  fetchPlaylistEditor,
   fetchPlaylists,
 } from '../api/spotify-api'
 import {
@@ -15,10 +15,11 @@ import {
 } from './spotify-auth-state'
 import type {
   SpotifyPlaylist,
-  SpotifyPlaylistItemPage,
+  SpotifyPlaylistEditor,
   SpotifyPlaylistPage,
   SpotifyUserProfile,
 } from '../types/spotify'
+import { usePlaylistEditor, type PlaylistEditorState } from './use-playlist-editor'
 
 export type SpotifyLibraryState = {
   authMessage: string | null
@@ -37,8 +38,9 @@ export type SpotifyLibraryState = {
   profile: SpotifyUserProfile | null
   profileName: string
   selectedPlaylist: SpotifyPlaylist | null
+  trackEditor: PlaylistEditorState
   trackError: string | null
-  trackPage: SpotifyPlaylistItemPage | null
+  trackPage: SpotifyPlaylistEditor | null
   trackPagination: {
     canGoBack: boolean
     canGoForward: boolean
@@ -51,8 +53,9 @@ export type SpotifyLibraryState = {
 export type SpotifyLibraryActions = {
   clearAuthMessage: () => void
   disconnectSpotify: () => Promise<void>
-  requestPlaylistItems: (playlist: SpotifyPlaylist, requestedOffset: number) => Promise<void>
+  requestPlaylistItems: (playlist: SpotifyPlaylist) => Promise<void>
   requestPlaylists: (requestedOffset: number) => void
+  setTrackOffset: (requestedOffset: number) => void
 }
 
 export function useSpotifyLibrary(): {
@@ -63,7 +66,8 @@ export function useSpotifyLibrary(): {
   const [page, setPage] = useState<SpotifyPlaylistPage | null>(null)
   const [profile, setProfile] = useState<SpotifyUserProfile | null>(null)
   const [selectedPlaylist, setSelectedPlaylist] = useState<SpotifyPlaylist | null>(null)
-  const [trackPage, setTrackPage] = useState<SpotifyPlaylistItemPage | null>(null)
+  const [trackPage, setTrackPage] = useState<SpotifyPlaylistEditor | null>(null)
+  const [trackLoadKey, setTrackLoadKey] = useState(0)
   const [offset, setOffset] = useState(0)
   const [trackOffset, setTrackOffset] = useState(0)
   const [error, setError] = useState<string | null>(initialAuthState.error)
@@ -72,12 +76,20 @@ export function useSpotifyLibrary(): {
   const [needsConnection, setNeedsConnection] = useState(initialAuthState.needsConnection)
   const [isLoading, setIsLoading] = useState(true)
   const [isTracksLoading, setIsTracksLoading] = useState(false)
+  const trackEditor = usePlaylistEditor(
+    selectedPlaylist?.id ?? null,
+    trackPage?.snapshot_id ?? null,
+    trackPage?.items ?? null,
+    trackLoadKey,
+  )
 
   const clearConnectedState = useCallback(() => {
     setPage(null)
     setProfile(null)
     setSelectedPlaylist(null)
     setTrackPage(null)
+    setTrackLoadKey(0)
+    setTrackOffset(0)
   }, [])
 
   const moveToReconnectState = useCallback(() => {
@@ -117,22 +129,31 @@ export function useSpotifyLibrary(): {
   )
 
   function requestPlaylists(requestedOffset: number) {
+    if (!guardUnsavedTrackChanges()) {
+      return
+    }
+
     setIsLoading(true)
     setError(null)
     void loadPlaylists(requestedOffset)
   }
 
-  async function requestPlaylistItems(playlist: SpotifyPlaylist, requestedOffset: number) {
+  async function requestPlaylistItems(playlist: SpotifyPlaylist) {
+    if (!guardUnsavedTrackChanges()) {
+      return
+    }
+
     setSelectedPlaylist(playlist)
     setTrackPage(null)
-    setTrackOffset(requestedOffset)
+    setTrackOffset(0)
     setIsTracksLoading(true)
     setTrackError(null)
 
     try {
-      const body = await fetchPlaylistItems(playlist.id, requestedOffset)
+      const body = await fetchPlaylistEditor(playlist.id)
       setNeedsConnection(false)
       setTrackPage(body)
+      setTrackLoadKey((currentKey) => currentKey + 1)
     } catch (loadError) {
       if (isUnauthorized(loadError)) {
         moveToReconnectState()
@@ -150,7 +171,25 @@ export function useSpotifyLibrary(): {
     }
   }
 
+  function setTrackPageOffset(requestedOffset: number) {
+    const lastOffset = Math.max(0, trackEditor.currentRows.length - TRACK_PAGE_SIZE)
+    setTrackOffset(Math.min(Math.max(0, requestedOffset), lastOffset))
+  }
+
+  function guardUnsavedTrackChanges() {
+    if (!trackEditor.hasUnsavedChanges) {
+      return true
+    }
+
+    setTrackError('Revierte los cambios antes de salir de esta edición.')
+    return false
+  }
+
   async function disconnectSpotify() {
+    if (!guardUnsavedTrackChanges()) {
+      return
+    }
+
     setIsLoading(true)
     setError(null)
 
@@ -240,8 +279,8 @@ export function useSpotifyLibrary(): {
 
   const startItem = page && page.total > 0 ? page.offset + 1 : 0
   const endItem = page ? Math.min(page.offset + page.items.length, page.total) : 0
-  const trackStartItem = trackPage && trackPage.total > 0 ? trackPage.offset + 1 : 0
-  const trackEndItem = trackPage ? Math.min(trackPage.offset + trackPage.items.length, trackPage.total) : 0
+  const trackStartItem = trackPage && trackPage.total > 0 ? trackOffset + 1 : 0
+  const trackEndItem = trackPage ? Math.min(trackOffset + TRACK_PAGE_SIZE, trackPage.total) : 0
   const profileName = profile ? profile.display_name ?? profile.id : ''
 
   return {
@@ -250,6 +289,7 @@ export function useSpotifyLibrary(): {
       disconnectSpotify,
       requestPlaylistItems,
       requestPlaylists,
+      setTrackOffset: setTrackPageOffset,
     },
     state: {
       authMessage,
@@ -268,6 +308,7 @@ export function useSpotifyLibrary(): {
       profile,
       profileName,
       selectedPlaylist,
+      trackEditor,
       trackError,
       trackPage,
       trackPagination: {
@@ -275,7 +316,7 @@ export function useSpotifyLibrary(): {
         canGoForward: Boolean(
           selectedPlaylist &&
             trackPage &&
-            trackOffset + TRACK_PAGE_SIZE < trackPage.total &&
+            trackOffset + TRACK_PAGE_SIZE < trackEditor.currentRows.length &&
             !isTracksLoading,
         ),
         endItem: trackEndItem,
